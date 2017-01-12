@@ -36,7 +36,7 @@
 
 #include <pcap/pcap.h>
 
-#include "pcap-fanout.h"
+#include "pcap-config.h"
 
 #ifdef __cplusplus
 extern "C" {

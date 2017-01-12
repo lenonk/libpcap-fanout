@@ -62,12 +62,13 @@ struct pcap_conf_key
 extern struct pcap_conf_key pcap_conf_keys[];
 
 
-struct pcap_group_map {
+struct pcap_group_map
+{
 	struct {
 		char	*dev;
 		int		group;
-
 	} entry[PCAP_FANOUT_GROUP_MAP_SIZE];
+
 	int		size;
 };
 
@@ -92,21 +93,19 @@ struct pcap_fanout
 	char *vlan		[PCAP_FANOUT_GROUP_DEF+1];
 	char *lang_src	[PCAP_FANOUT_GROUP_DEF+1];
 	char *lang_lit;
-
-} fanout;
-
-
-typedef int (*pcap_strtoken_handler_t)(const char *);
+};
 
 
-int pcap_parse_config(struct pcap_fanout *opt, const char *filename);
-int pcap_string_for_each_token(const char *ds, const char *sep, pcap_strtoken_handler_t handler);
+typedef int (*pcap_string_handler_t)(const char *);
 
+int    pcap_parse_config(struct pcap_fanout *opt, const char *filename);
+
+int    pcap_string_for_each_token(const char *ds, const char *sep, pcap_string_handler_t handler);
 char * pcap_string_first_token(const char *str, const char *sep);
 char * pcap_string_trim(char *str);
-char * pcap_strrng_append(char *str1, const char *str2);
-int	   pcap_parse_integers(int *out, size_t max, const char *in);
+char * pcap_string_append(char *str1, const char *str2);
 
+int	   pcap_parse_integers(int *out, size_t max, const char *in);
 char * pcap_getenv_name(char *var);
 char * pcap_getenv_value(char *var);
 char **pcap_getenv(char *var);

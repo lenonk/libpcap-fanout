@@ -1,7 +1,7 @@
 #include <pcap.h>
 #include <pcap-int.h>
 
-#include "pcap-fanout.h"
+#include "pcap-config.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -32,7 +32,7 @@ pcap_group_map_dump(struct pcap_group_map *map)
 {
 	int n = 0;
 	for(; n < map->size; n++)
-		fprintf(stderr, "pcap-fanout: config group for dev '%s' = %d\n", map->entry[n].dev, map->entry[n].group);
+		fprintf(stderr, "pcap-config: config group for dev '%s' = %d\n", map->entry[n].dev, map->entry[n].group);
 }
 
 
@@ -84,7 +84,7 @@ static void
 pcap_warn_if(int index, const char *filename, const char *key)
 {
 	if (index != PCAP_FANOUT_GROUP_DEF)
-		fprintf(stderr, "pcap-fanout:%s: key %s: group ignored!\n", filename, key);
+		fprintf(stderr, "pcap-config:%s: key %s: group ignored!\n", filename, key);
 }
 
 
@@ -108,7 +108,7 @@ pcap_parse_integers(int *out, size_t max, const char *in)
 
 
 int
-pcap_string_for_each_token(const char *ds, const char *sep, pcap_strtoken_handler_t handler)
+pcap_string_for_each_token(const char *ds, const char *sep, pcap_string_handler_t handler)
 {
         char * mutable = strdup(ds);
         char *str, *token, *saveptr;
@@ -175,6 +175,7 @@ pcap_string_append(char *str1, const char *str2)
 	}
 	return ret;
 }
+
 
 static const char *
 pcap_conf_get_key_name(char const *key)
@@ -251,7 +252,7 @@ pcap_getenv(char *name)
 	while (*cur && size < 64) {
 		if (strncmp(*cur, name, strlen(name)) == 0) {
 			env[size++] = *cur;
-}
+		}
 		cur++;
 	}
 	env[size] = NULL;
@@ -269,7 +270,7 @@ pcap_parse_config(struct pcap_fanout *opt, const char *filename)
 
 	file = fopen(filename, "r");
 	if (!file) {
-		fprintf(stderr, "pcap-fanout: could not open '%s' file!\n", filename);
+		fprintf(stderr, "pcap-config: could not open '%s' file!\n", filename);
 		rc = -1; goto err;
 	}
 
@@ -308,7 +309,7 @@ pcap_parse_config(struct pcap_fanout *opt, const char *filename)
 		{
 			char *dev = strdup(pcap_getenv_name(tkey + sizeof("group_")-1));
 			if (pcap_group_map_set(&opt->group_map, dev, atoi(value)) < 0) {
-				fprintf(stderr, "pcap-fanout:%s: '%s': group map error!\n", filename, tkey);
+				fprintf(stderr, "pcap-config:%s: '%s': group map error!\n", filename, tkey);
 				rc = -1;
 				goto next;
 			}
@@ -329,14 +330,14 @@ pcap_parse_config(struct pcap_fanout *opt, const char *filename)
 			case PCAP_CONF_KEY_tx_hw_queue:  {
 				pcap_warn_if(index, filename, tkey);
 				if (pcap_parse_integers(opt->tx_hw_queue, 4, value) < 0) {
-					fprintf(stderr, "pcap-fanout:%s: parse error at: %s\n", filename, tkey);
+					fprintf(stderr, "pcap-config:%s: parse error at: %s\n", filename, tkey);
 					rc = -1;
 				}
 			} break;
 			case PCAP_CONF_KEY_tx_idx_thread: {
 				pcap_warn_if(index, filename, tkey);
 				if (pcap_parse_integers(opt->tx_idx_thread, 4, value) < 0) {
-					fprintf(stderr, "pcap-fanout:%s: parse error at: %s\n", filename, tkey);
+					fprintf(stderr, "pcap-config:%s: parse error at: %s\n", filename, tkey);
 					rc = -1;
 				}
 			} break;
@@ -344,7 +345,7 @@ pcap_parse_config(struct pcap_fanout *opt, const char *filename)
 			case PCAP_CONF_KEY_lang: free (opt->lang_src[index]); opt->lang_src[index] = strdup(pcap_string_trim(value)); break;
 			case PCAP_CONF_KEY_error:
 			default: {
-				fprintf(stderr, "pcap-fanout:%s: parse error (unknown keyword '%s')\n", filename, tkey);
+				fprintf(stderr, "pcap-config:%s: parse error at: %s (invalid keyword)\n", filename, tkey);
 				rc = -1;
 			} break;
 		}

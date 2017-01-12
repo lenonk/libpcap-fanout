@@ -82,7 +82,7 @@ YACC = @YACC@
 PSRC =	pcap-@V_PCAP@.c @USB_SRC@ @BT_SRC@ @BT_MONITOR_SRC@ @NETFILTER_SRC@ @DBUS_SRC@ @PFQ_SRC@
 FSRC =  @V_FINDALLDEVS@
 SSRC =  @SSRC@
-CSRC =	pcap.c pcap-fanout.c inet.c fad-helpers.c gencode.c optimize.c nametoaddr.c \
+CSRC =	pcap.c pcap-config.c inet.c fad-helpers.c gencode.c optimize.c nametoaddr.c \
 	etherent.c savefile.c sf-pcap.c sf-pcap-ng.c pcap-common.c \
 	bpf_image.c bpf_dump.c
 GENSRC = scanner.c grammar.c bpf_filter.c version.c
