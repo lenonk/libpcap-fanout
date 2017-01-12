@@ -667,7 +667,7 @@ pfq_activate_linux(pcap_t *handle)
 
 	config = pfq_get_config_file(handle->opt.device);
 	if (config == NULL) {
-		char *conf = getenv("PFQ_CONFIG");
+		char *conf = getenv("PFQ_CONFIG") ? : getenv("PCAP_CONFIG");
 		if (conf)
 			config = strdup(conf);
 	}

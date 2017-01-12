@@ -1,3 +1,36 @@
+/*
+ * Copyright (c) 1994, 1995, 1996
+ *	The Regents of the University of California.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ *	This product includes software developed by the Computer Systems
+ *	Engineering Group at Lawrence Berkeley Laboratory.
+ * 4. Neither the name of the University nor of the Laboratory may be used
+ *    to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
+
 #include <pcap.h>
 #include <pcap-int.h>
 
@@ -11,7 +44,6 @@
 
 
 extern char **environ;
-
 
 struct pcap_conf_key pcap_conf_keys[] =
 {
@@ -110,11 +142,11 @@ pcap_parse_integers(int *out, size_t max, const char *in)
 int
 pcap_string_for_each_token(const char *ds, const char *sep, pcap_string_handler_t handler)
 {
-        char * mutable = strdup(ds);
+        char * copy = strdup(ds);
         char *str, *token, *saveptr;
         int i, ret = 0;
 
-        for (i = 1, str = mutable; ; i++, str = NULL)
+        for (i = 1, str = copy; ; i++, str = NULL)
         {
                 token = strtok_r(str, sep, &saveptr);
                 if (token == NULL)
@@ -125,7 +157,7 @@ pcap_string_for_each_token(const char *ds, const char *sep, pcap_string_handler_
 		}
         }
 
-        free(mutable);
+        free(copy);
 	return ret;
 }
 
@@ -136,7 +168,7 @@ pcap_string_first_token(const char *str, const char *sep)
 	char *end;
 
 	if ((end = strstr(str, sep))) {
-		char *ret = malloc(end - str + 1);
+		char *ret = (char *)malloc(end - str + 1);
 		strncpy(ret, str, end - str);
 		ret[end - str] = '\0';
 		return ret;
@@ -166,11 +198,11 @@ pcap_string_append(char *str1, const char *str2)
 {
 	char *ret;
 	if (str1) {
-		ret = realloc(str1, strlen(str1) + strlen(str2) + 1);
+		ret = (char *)realloc(str1, strlen(str1) + strlen(str2) + 1);
 		strcat(ret, str2);
 	}
 	else {
-		ret = malloc(strlen(str2) + 1);
+		ret = (char *)malloc(strlen(str2) + 1);
 		strcpy(ret, str2);
 	}
 	return ret;

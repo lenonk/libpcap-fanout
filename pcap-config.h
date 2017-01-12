@@ -31,28 +31,28 @@
  * SUCH DAMAGE.
  */
 
-#ifndef pcap_fanout_h
-#define	pcap_fanout_h
+#ifndef pcap_config_h
+#define	pcap_config_h
 
 #include <stddef.h>
 
 #define PCAP_CONF_KEY(value) [PCAP_CONF_KEY_ ## value] = # value
 
-#define PCAP_CONF_KEY_error				-1
-#define PCAP_CONF_KEY_def_group			0
-#define PCAP_CONF_KEY_caplen			1
-#define PCAP_CONF_KEY_rx_slots			2
-#define PCAP_CONF_KEY_tx_slots          3
-#define PCAP_CONF_KEY_tx_sync			4
-#define PCAP_CONF_KEY_tx_hw_queue		5
-#define PCAP_CONF_KEY_tx_idx_thread		6
-#define PCAP_CONF_KEY_vlan				7
-#define PCAP_CONF_KEY_lang				8
-#define PCAP_CONF_KEY_EOF				9
+#define PCAP_CONF_KEY_error	       -1
+#define PCAP_CONF_KEY_def_group		0
+#define PCAP_CONF_KEY_caplen		1
+#define PCAP_CONF_KEY_rx_slots		2
+#define PCAP_CONF_KEY_tx_slots		3
+#define PCAP_CONF_KEY_tx_sync		4
+#define PCAP_CONF_KEY_tx_hw_queue	5
+#define PCAP_CONF_KEY_tx_idx_thread	6
+#define PCAP_CONF_KEY_vlan		7
+#define PCAP_CONF_KEY_lang		8
+#define PCAP_CONF_KEY_EOF		9
 
 
-#define PCAP_FANOUT_GROUP_MAP_SIZE		64
-#define PCAP_FANOUT_GROUP_DEF			64
+#define PCAP_FANOUT_GROUP_MAP_SIZE	64
+#define PCAP_FANOUT_GROUP_DEF		64
 
 struct pcap_conf_key
 {
@@ -66,10 +66,10 @@ struct pcap_group_map
 {
 	struct {
 		char	*dev;
-		int		group;
+		int	group;
 	} entry[PCAP_FANOUT_GROUP_MAP_SIZE];
 
-	int		size;
+	int size;
 };
 
 
@@ -78,7 +78,7 @@ struct pcap_fanout
 	int def_group;
 	struct pcap_group_map group_map;
 
-	int group;		/* actual group of this socket */
+	int group;
 	int caplen;
 
 	int rx_slots;
@@ -90,8 +90,8 @@ struct pcap_fanout
 	int tx_hw_queue[4];
 	int tx_idx_thread[4];
 
-	char *vlan		[PCAP_FANOUT_GROUP_DEF+1];
-	char *lang_src	[PCAP_FANOUT_GROUP_DEF+1];
+	char *vlan     [PCAP_FANOUT_GROUP_DEF+1];
+	char *lang_src [PCAP_FANOUT_GROUP_DEF+1];
 	char *lang_lit;
 };
 
@@ -105,7 +105,7 @@ char * pcap_string_first_token(const char *str, const char *sep);
 char * pcap_string_trim(char *str);
 char * pcap_string_append(char *str1, const char *str2);
 
-int	   pcap_parse_integers(int *out, size_t max, const char *in);
+int    pcap_parse_integers(int *out, size_t max, const char *in);
 char * pcap_getenv_name(char *var);
 char * pcap_getenv_value(char *var);
 char **pcap_getenv(char *var);
@@ -116,4 +116,4 @@ int  pcap_group_map_set (struct pcap_group_map *map, const char *dev, int group)
 int  pcap_group_map_get (struct pcap_group_map const *map, const char *dev);
 
 
-#endif /* pcap_int_h */
+#endif /* pcap_config_h */

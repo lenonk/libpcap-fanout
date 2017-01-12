@@ -481,8 +481,8 @@ pcap_create_interface(const char *device, char *ebuf)
 	    getenv(pfq_dev)	    ||
 	    getenv(pfq_group_dev)   ||
 	    getenv("PFQ_DEF_GROUP") ||
-	    getenv("PFQ_FORCE_ALL"))
-	{
+	    getenv("PFQ_FORCE_ALL") ||
+	    getenv("PFQ_CONFIG")) {
 		return pfq_create(ebuf, sizeof(struct pcap_pfq_linux));
 	}
 #endif
