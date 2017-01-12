@@ -2550,6 +2550,44 @@ check_bpf_bindable(const char *name)
 	int fd;
 	char errbuf[PCAP_ERRBUF_SIZE];
 
+	/*
+	 * On macOS, we don't do this check if the device name begins
+	 * with "wlt"; at least some versions of macOS (actually, it
+	 * was called "Mac OS X" then...) offer monitor mode capturing
+	 * by having a separate "monitor mode" device for each wireless
+	 * adapter, rather than by implementing the ioctls that
+	 * {Free,Net,Open,DragonFly}BSD provide. Opening that device
+	 * puts the adapter into monitor mode, which, at least for
+	 * some adapters, causes them to deassociate from the network
+	 * with which they're associated.
+	 *
+	 * Instead, we try to open the corresponding "en" device (so
+	 * that we don't end up with, for users without sufficient
+	 * privilege to open capture devices, a list of adapters that
+	 * only includes the wlt devices).
+	 */
+#ifdef __APPLE__
+	if (strncmp(name, "wlt", 3) == 0) {
+		char *en_name;
+		size_t en_name_len;
+
+		/*
+		 * Try to allocate a buffer for the "en"
+		 * device's name.
+		 */
+		en_name_len = strlen(name) - 1;
+		en_name = malloc(en_name_len + 1);
+		if (en_name == NULL) {
+			(void)pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+			    "malloc: %s", pcap_strerror(errno));
+			return (-1);
+		}
+		strcpy(en_name, "en");
+		strcat(en_name, name + 3);
+		fd = bpf_open_and_bind(en_name, errbuf);
+		free(en_name);
+	} else
+#endif /* __APPLE */
 	fd = bpf_open_and_bind(name, errbuf);
 	if (fd < 0) {
 		/*
@@ -2624,7 +2662,6 @@ finddevs_usb(pcap_if_t **alldevsp, char *errbuf)
 	while ((usbitem = readdir(usbdir)) != NULL) {
 		char *p;
 		size_t busnumlen;
-		int err;
 
 		if (strcmp(usbitem->d_name, ".") == 0 ||
 		    strcmp(usbitem->d_name, "..") == 0) {
@@ -2640,11 +2677,17 @@ finddevs_usb(pcap_if_t **alldevsp, char *errbuf)
 		memcpy(name, usbus_prefix, USBUS_PREFIX_LEN);
 		memcpy(name + USBUS_PREFIX_LEN, usbitem->d_name, busnumlen);
 		*(name + USBUS_PREFIX_LEN + busnumlen) = '\0';
-		err = pcap_add_if(alldevsp, name, PCAP_IF_UP, NULL, errbuf);
-		if (err != 0) {
+		/*
+		 * There's an entry in this directory for every USB device,
+		 * not for every bus; if there's more than one device on
+		 * the bus, there'll be more than one entry for that bus,
+		 * so we need to avoid adding multiple capture devices
+		 * for each bus.
+		 */
+		if (find_or_add_dev(alldevsp, name, PCAP_IF_UP, NULL, errbuf) == NULL) {
 			free(name);
 			closedir(usbdir);
-			return (err);
+			return (PCAP_ERROR);
 		}
 	}
 	free(name);

@@ -1,5 +1,14 @@
 cmake_minimum_required( VERSION 2.8.8 )
 
+#
+# Apple doesn't build with an install_name starting with @rpath, and
+# neither do we with autotools; don't do so with CMake, either, and
+# suppress warnings about that.
+#
+if (POLICY CMP0042)
+    cmake_policy(SET CMP0042 OLD)
+endif()
+ 
 project( pcap )
 #
 # Call the library "wpcap" on Windows, for backwards compatibility.
@@ -24,11 +33,13 @@ if( WIN32 )
 endif( WIN32 )
 
 #
-# XXX - this should be an option, defaulting to "yes" for Windows and to
-# "no", for now, on UN*X.
+# Default to having remote capture support on Windows and, for now, to
+# not having it on UN*X.
 #
 if( WIN32 )
-    set( HAVE_REMOTE 1 )
+    option (HAVE_REMOTE "Enable remote capture" ON)
+else()
+    option (HAVE_REMOTE "Enable remote capture" OFF)
 endif( WIN32 )
 
 ######################################

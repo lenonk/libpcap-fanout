@@ -2314,11 +2314,12 @@ add_linux_if(pcap_if_t **devlistp, const char *ifname, int fd, char *errbuf)
 	}
 
 	/*
-	 * Add an entry for this interface, with no addresses.
+	 * Add an entry for this interface, with no addresses, if it's
+	 * not already in the list.
 	 */
-	if (pcap_add_if(devlistp, name,
+	if (find_or_add_dev(devlistp, name,
 	    if_flags_to_pcap_flags(name, ifrflags.ifr_flags), NULL,
-	    errbuf) == -1) {
+	    errbuf) == NULL) {
 		/*
 		 * Failure.
 		 */
@@ -2591,8 +2592,8 @@ pcap_platform_finddevs(pcap_if_t **alldevsp, char *errbuf)
 	/*
 	 * Add the "any" device.
 	 */
-	if (pcap_add_if(alldevsp, "any", PCAP_IF_UP|PCAP_IF_RUNNING,
-	    any_descr, errbuf) < 0)
+	if (add_dev(alldevsp, "any", PCAP_IF_UP|PCAP_IF_RUNNING,
+	    any_descr, errbuf) == NULL)
 		return (-1);
 
 	return (0);
@@ -4182,7 +4183,14 @@ create_ring(pcap_t *handle, int *status)
 			 */
 		macoff = netoff - maclen;
 		req.tp_frame_size = TPACKET_ALIGN(macoff + frame_size);
-		req.tp_frame_nr = handle->opt.buffer_size/req.tp_frame_size;
+		/*
+		 * Round the buffer size up to a multiple of the
+		 * frame size (rather than rounding down, which
+		 * would give a buffer smaller than our caller asked
+		 * for, and possibly give zero frames if the requested
+		 * buffer size is too small for one frame).
+		 */
+		req.tp_frame_nr = (handle->opt.buffer_size + req.tp_frame_size - 1)/req.tp_frame_size;
 		break;
 
 #ifdef HAVE_TPACKET3
@@ -4190,11 +4198,18 @@ create_ring(pcap_t *handle, int *status)
 		/* The "frames" for this are actually buffers that
 		 * contain multiple variable-sized frames.
 		 *
-		 * We pick a "frame" size of 128K to leave enough
-		 * room for at least one reasonably-sized packet
+		 * We pick a "frame" size of MAXIMUM_SNAPLEN to leave
+		 * enough room for at least one reasonably-sized packet
 		 * in the "frame". */
 		req.tp_frame_size = MAXIMUM_SNAPLEN;
-		req.tp_frame_nr = handle->opt.buffer_size/req.tp_frame_size;
+		/*
+		 * Round the buffer size up to a multiple of the
+		 * "frame" size (rather than rounding down, which
+		 * would give a buffer smaller than our caller asked
+		 * for, and possibly give zero "frames" if the requested
+		 * buffer size is too small for one "frame").
+		 */
+		req.tp_frame_nr = (handle->opt.buffer_size + req.tp_frame_size - 1)/req.tp_frame_size;
 		break;
 #endif
 	default:
@@ -6892,6 +6907,7 @@ set_kernel_filter(pcap_t *handle, struct sock_fprog *fcode)
 static int
 reset_kernel_filter(pcap_t *handle)
 {
+	int ret;
 	/*
 	 * setsockopt() barfs unless it get a dummy parameter.
 	 * valgrind whines unless the value is initialized,
@@ -6900,7 +6916,17 @@ reset_kernel_filter(pcap_t *handle)
 	 */
 	int dummy = 0;
 
-	return setsockopt(handle->fd, SOL_SOCKET, SO_DETACH_FILTER,
+	ret = setsockopt(handle->fd, SOL_SOCKET, SO_DETACH_FILTER,
 				   &dummy, sizeof(dummy));
+	/*
+	 * Ignore ENOENT - it means "we don't have a filter", so there
+	 * was no filter to remove, and there's still no filter.
+	 *
+	 * Also ignore ENONET, as a lot of kernel versions had a
+	 * typo where ENONET, rather than ENOENT, was returned.
+	 */
+	if (ret == -1 && errno != ENOENT && errno != ENONET)
+		return -1;
+	return 0;
 }
 #endif

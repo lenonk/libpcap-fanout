@@ -30,10 +30,10 @@ struct pcap_snf {
 	snf_handle_t snf_handle; /* opaque device handle */
 	snf_ring_t   snf_ring;   /* opaque device ring handle */
 #ifdef SNF_HAVE_INJECT_API
-        snf_inject_t snf_inj;    /* inject handle, if inject is used */
+	snf_inject_t snf_inj;    /* inject handle, if inject is used */
 #endif
-        int          snf_timeout;
-        int          snf_boardnum;
+	int          snf_timeout;
+	int          snf_boardnum;
 };
 
 static int
@@ -67,8 +67,8 @@ snf_platform_cleanup(pcap_t *p)
 	struct pcap_snf *ps = p->priv;
 
 #ifdef SNF_HAVE_INJECT_API
-        if (ps->snf_inj)
-                snf_inject_close(ps->snf_inj);
+	if (ps->snf_inj)
+		snf_inject_close(ps->snf_inj);
 #endif
 	snf_ring_close(ps->snf_ring);
 	snf_close(ps->snf_handle);
@@ -212,25 +212,25 @@ snf_inject(pcap_t *p, const void *buf _U_, size_t size _U_)
 {
 #ifdef SNF_HAVE_INJECT_API
 	struct pcap_snf *ps = p->priv;
-        int rc;
-        if (ps->snf_inj == NULL) {
-                rc = snf_inject_open(ps->snf_boardnum, 0, &ps->snf_inj);
-                if (rc) {
-                        pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
-                                "snf_inject_open: %s", pcap_strerror(rc));
-                        return (-1);
-                }
-        }
+	int rc;
+	if (ps->snf_inj == NULL) {
+		rc = snf_inject_open(ps->snf_boardnum, 0, &ps->snf_inj);
+		if (rc) {
+			pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+				"snf_inject_open: %s", pcap_strerror(rc));
+			return (-1);
+		}
+	}
 
-        rc = snf_inject_send(ps->snf_inj, -1, 0, buf, size);
-        if (!rc) {
-                return (size);
-        }
-        else {
-                pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE, "snf_inject_send: %s",
-                         pcap_strerror(rc));
-                return (-1);
-        }
+	rc = snf_inject_send(ps->snf_inj, -1, 0, buf, size);
+	if (!rc) {
+		return (size);
+	}
+	else {
+		pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE, "snf_inject_send: %s",
+			 pcap_strerror(rc));
+		return (-1);
+	}
 #else
 	strlcpy(p->errbuf, "Sending packets isn't supported with this snf version",
 	    PCAP_ERRBUF_SIZE);
@@ -312,7 +312,7 @@ snf_activate(pcap_t* p)
 	p->stats_op = snf_pcap_stats;
 	p->cleanup_op = snf_platform_cleanup;
 #ifdef SNF_HAVE_INJECT_API
-        ps->snf_inj = NULL;
+	ps->snf_inj = NULL;
 #endif
 	return 0;
 }
@@ -321,13 +321,16 @@ snf_activate(pcap_t* p)
 int
 snf_findalldevs(pcap_if_t **devlistp, char *errbuf)
 {
-	pcap_if_t *devlist = NULL,*curdev,*prevdev;
-	pcap_addr_t *curaddr;
+	pcap_if_t *dev;
 	struct snf_ifaddrs *ifaddrs, *ifa;
+	char name[MAX_DESC_LENGTH];
 	char desc[MAX_DESC_LENGTH];
-	int ret;
+	int ret, allports = 0, merge = 0;
+	const char *nr = NULL;
 
-	if (snf_init(SNF_VERSION_API))
+	if (snf_init(SNF_VERSION_API)) {
+		(void)pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+		    "snf_getifaddrs: snf_init failed");
 		return (-1);
 
 	if (snf_getifaddrs(&ifaddrs) || ifaddrs == NULL)
@@ -336,83 +339,104 @@ snf_findalldevs(pcap_if_t **devlistp, char *errbuf)
 			"snf_getifaddrs: %s", pcap_strerror(errno));
 		return (-1);
 	}
-	ifa = ifaddrs;
-	while (ifa)
-	{
-		/*
-		 * Allocate a new entry
-		 */
-		curdev = (pcap_if_t *)malloc(sizeof(pcap_if_t));
-		if (curdev == NULL) {
-		(void)pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
-			"snf_findalldevs malloc: %s", pcap_strerror(errno));
-			return (-1);
-		}
-		if (devlist == NULL) /* save first entry */
-			devlist = curdev;
-		else
-			prevdev->next = curdev;
-		/*
-		 * Fill in the entry.
-		 */
-		curdev->next = NULL;
-		curdev->name = strdup(ifa->snf_ifa_name);
-		if (curdev->name == NULL) {
+	if ((nr = getenv("SNF_FLAGS")) && *nr) {
+		errno = 0;
+		merge = strtol(nr, NULL, 0);
+		if (errno) {
 			(void)pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
-			    "snf_findalldevs strdup: %s", pcap_strerror(errno));
-			free(curdev);
+				"snf_getifaddrs: SNF_FLAGS is not a valid number");
 			return (-1);
 		}
-		(void)pcap_snprintf(desc,MAX_DESC_LENGTH,"Myricom snf%d",
-				ifa->snf_ifa_portnum);
-		curdev->description = strdup(desc);
-		if (curdev->description == NULL) {
-			(void)pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
-			"snf_findalldevs strdup1: %s", pcap_strerror(errno));
-			free(curdev->name);
-			free(curdev);
-			return (-1);
-		}
-		curdev->addresses = NULL;
-		curdev->flags = 0;
+		merge = merge & SNF_F_AGGREGATE_PORTMASK;
+	}
 
-		curaddr = (pcap_addr_t *)malloc(sizeof(pcap_addr_t));
-		if (curaddr == NULL) {
-			(void)pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
-			     "snf_findalldevs malloc1: %s", pcap_strerror(errno));
-			free(curdev->description);
-			free(curdev->name);
-			free(curdev);
-			return (-1);
-		}
-		curdev->addresses = curaddr;
-		curaddr->next = NULL;
-		curaddr->addr = (struct sockaddr*)malloc(sizeof(struct sockaddr_storage));
-		if (curaddr->addr == NULL) {
-			(void)pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
-			    "malloc2: %s", pcap_strerror(errno));
-			free(curdev->description);
-			free(curdev->name);
-			free(curaddr);
-			free(curdev);
-			return (-1);
-		}
-		curaddr->addr->sa_family = AF_INET;
-		curaddr->netmask = NULL;
-		curaddr->broadaddr = NULL;
-		curaddr->dstaddr = NULL;
-		curaddr->next = NULL;
+	for (ifa = ifaddrs; ifa != NULL; ifa = ifa->snf_ifa_next) {
+		/*
+		 * Myricom SNF adapter ports may appear as regular
+		 * network interfaces, which would already have been
+		 * added to the list of adapters by pcap_platform_finddevs()
+		 * if this isn't an SNF-only version of libpcap.
+		 *
+		 * Our create routine intercepts pcap_create() calls for
+		 * those interfaces and arranges that they will be
+		 * opened using the SNF API instead.
+		 *
+		 * So if we already have an entry for the device, we
+		 * don't add an additional entry for it, we just
+		 * update the description for it, if any, to indicate
+		 * which snfN device it is.  Otherwise, we add an entry
+		 * for it.
+		 *
+		 * In either case, if SNF_F_AGGREGATE_PORTMASK is set
+		 * in SNF_FLAGS, we add this port to the bitmask
+		 * of ports, which we use to generate a device
+		 * we can use to capture on all ports.
+		 *
+		 * Generate the description string.  If port aggregation
+		 * is set, use 2^{port number} as the unit number,
+		 * rather than {port number}.
+		 *
+		 * XXX - do entries in this list have IP addresses for
+		 * the port?  If so, should we add them to the
+		 * entry for the device, if they're not already in the
+		 * list of IP addresses for the device?
+ 		 */
+		(void)pcap_snprintf(desc,MAX_DESC_LENGTH,"Myricom %ssnf%d",
+			merge ? "Merge Bitmask Port " : "",
+			merge ? 1 << ifa->snf_ifa_portnum : ifa->snf_ifa_portnum);
+		/*
+		 * Add the port to the bitmask.
+		 */
+		if (merge)
+			allports |= 1 << ifa->snf_ifa_portnum;
+		/*
+		 * See if there's already an entry for the device
+		 * with the name ifa->snf_ifa_name.
+		 */
+		dev = find_dev(alldevs, ifa->snf_ifa_name);
+		if (dev != NULL) {
+			/*
+			 * Yes.  Update its description.
+			 */
+			char *desc_str;
 
-		prevdev = curdev;
-		ifa = ifa->snf_ifa_next;
+			desc_str = strdup(desc);
+			if (desc_str == NULL) {
+				(void)pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+				    "snf_findalldevs strdup: %s", pcap_strerror(errno));
+				return -1;
+			}
+			free(dev->description);
+			dev->description = desc_str;
+		} else {
+			/*
+			 * No.  Add an entry for it.
+			 */
+			dev = add_dev(alldevs, ifa->snf_ifa_name, 0, desc,
+			    errbuf);
+			if (dev == NULL)
+				return -1;
+		}
 	}
 	snf_freeifaddrs(ifaddrs);
-	*devlistp = devlist;
-
 	/*
-	 * There are no platform-specific devices since each device
-	 * exists as a regular Ethernet device.
-	 */
+	 * Create a snfX entry if port aggregation is enabled
+       	 */
+	if (merge) {
+		/*
+		 * Add a new entry with all ports bitmask
+		 */
+		(void)pcap_snprintf(name,MAX_DESC_LENGTH,"snf%d",allports);
+		(void)pcap_snprintf(desc,MAX_DESC_LENGTH,"Myricom Merge Bitmask All Ports snf%d",
+			allports);
+		if (add_dev(alldevs, name, 0, desc, errbuf) == NULL)
+			return (-1);
+		/*
+		 * XXX - should we give it a list of addresses with all
+		 * the addresses for all the ports?
+		 */
+	}
+
 	return 0;
 }
 
@@ -443,7 +467,7 @@ snf_create(const char *device, char *ebuf, int *is_ours)
 	devlen = strlen(device) + 1;
 	ifa = ifaddrs;
 	while (ifa) {
-		if (!strncmp(device, ifa->snf_ifa_name, devlen)) {
+		if (strncmp(device, ifa->snf_ifa_name, devlen) == 0) {
 			boardnum = ifa->snf_ifa_boardnum;
 			break;
 		}
@@ -461,7 +485,7 @@ snf_create(const char *device, char *ebuf, int *is_ours)
 			/* Nope, not a supported name */
 			*is_ours = 0;
 			return NULL;
-		    }
+		}
 	}
 
 	/* OK, it's probably ours. */
@@ -498,7 +522,7 @@ snf_create(const char *device, char *ebuf, int *is_ours)
  */
 
 /*
- * There are no regular interfaces, just DAG interfaces.
+ * There are no regular interfaces, just SNF interfaces.
  */
 int
 pcap_platform_finddevs(pcap_if_t **alldevsp, char *errbuf)
