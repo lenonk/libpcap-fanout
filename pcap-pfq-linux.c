@@ -65,9 +65,6 @@
 #include "pcap-pfq-linux.h"
 
 
-extern char **environ;
-
-
 static void pfq_cleanup_linux(pcap_t *);
 static	int pfq_activate_linux(pcap_t *);
 static	int pfq_inject_linux(pcap_t *, const void *, size_t);

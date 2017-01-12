@@ -10,6 +10,9 @@
 #include <errno.h>
 
 
+extern char **environ;
+
+
 struct pcap_conf_key pcap_conf_keys[] =
 {
 	PCAP_CONF_KEY(def_group),
