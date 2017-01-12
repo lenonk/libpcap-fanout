@@ -112,6 +112,41 @@ extern "C" {
  */
 #define MAXIMUM_SNAPLEN		262144
 
+#define PCAP_FANOUT_GROUP_MAP_SIZE	64
+#define PCAP_FANOUT_GROUP_DEF			64
+
+struct pcap_fanout
+{
+	int def_group;
+
+	struct pfq_group_map {
+		struct {
+			char	*dev;
+			int		group;
+
+		} entry[PCAP_FANOUT_GROUP_MAP_SIZE];
+		int		size;
+	} group_map;
+
+	int group;		/* actual group of this socket */
+	int caplen;
+
+	int rx_slots;
+	int tx_slots;
+
+	int tx_sync;
+	int tx_async;
+
+	int tx_hw_queue[4];
+	int tx_idx_thread[4];
+
+	char *vlan		[PCAP_FANOUT_GROUP_DEF+1];
+	char *lang_src	[PCAP_FANOUT_GROUP_DEF+1];
+	char *lang_lit;
+
+} fanout;
+
+
 struct pcap_opt {
 	char	*device;
 	int	timeout;	/* timeout for buffering */
@@ -122,48 +157,9 @@ struct pcap_opt {
 	int	tstamp_type;
 	int	tstamp_precision;
 
-  #ifdef PCAP_SUPPORT_PFQ
-
-  #define PCAP_PFQ_GROUP_MAP_SIZE	64
-  #define PCAP_PFQ_GROUP_DEF		64
-
-	struct pfq_opt
-	{
-		int def_group;
-
-		struct pfq_group_map {
-			struct {
-				char	*dev;
-				int		group;
-
-			} entry[PCAP_PFQ_GROUP_MAP_SIZE];
-			int		size;
-		} group_map;
-
-		int group;		/* actual group of this socket */
-		int caplen;
-
-		int rx_slots;
-		int tx_slots;
-
-		int tx_sync;
-		int tx_async;
-
-		int tx_hw_queue[4];
-		int tx_idx_thread[4];
-
-		char *vlan[PCAP_PFQ_GROUP_DEF+1];
-		char *lang_src[PCAP_PFQ_GROUP_DEF+1];
-		char *lang_lit;
-
-	} pfq;
-
-  #endif
+	struct pcap_fanout fanout;
 };
 
-
-#ifdef PCAP_SUPPORT_PFQ
-#endif
 
 
 typedef int	(*activate_op_t)(pcap_t *);
