@@ -1,5 +1,5 @@
-PFQ/pcap 
-========
+PCAP Fanout 
+===========
 
 Introduction
 ------------
