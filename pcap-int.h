@@ -36,6 +36,8 @@
 
 #include <pcap/pcap.h>
 
+#include "pcap-fanout.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -111,41 +113,6 @@ extern "C" {
  * We don't enforce this in pcap_set_snaplen(), but we use it internally.
  */
 #define MAXIMUM_SNAPLEN		262144
-
-#define PCAP_FANOUT_GROUP_MAP_SIZE	64
-#define PCAP_FANOUT_GROUP_DEF			64
-
-struct pcap_fanout
-{
-	int def_group;
-
-	struct pfq_group_map {
-		struct {
-			char	*dev;
-			int		group;
-
-		} entry[PCAP_FANOUT_GROUP_MAP_SIZE];
-		int		size;
-	} group_map;
-
-	int group;		/* actual group of this socket */
-	int caplen;
-
-	int rx_slots;
-	int tx_slots;
-
-	int tx_sync;
-	int tx_async;
-
-	int tx_hw_queue[4];
-	int tx_idx_thread[4];
-
-	char *vlan		[PCAP_FANOUT_GROUP_DEF+1];
-	char *lang_src	[PCAP_FANOUT_GROUP_DEF+1];
-	char *lang_lit;
-
-} fanout;
-
 
 struct pcap_opt {
 	char	*device;

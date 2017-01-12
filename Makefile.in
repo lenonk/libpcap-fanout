@@ -346,6 +346,7 @@ EXTRA_DIST = \
 	pcap-usb-linux.c \
 	pcap-usb-linux.h \
 	pcap-win32.c \
+	pcap-fanout.c \
 	remote-ext.h \
 	sockutils.c \
 	sockutils.h \

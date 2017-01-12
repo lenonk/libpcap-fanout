@@ -358,115 +358,6 @@ pfq_setfilter_linux(pcap_t *handle, struct bpf_program *filter)
 /***********************************************/
 
 
-static int
-pfq_group_map_dump(struct pfq_group_map *map)
-{
-	int n = 0;
-	for(; n < map->size; n++)
-		fprintf(stderr, "[PFQ] config group for dev '%s' = %d\n", map->entry[n].dev, map->entry[n].group);
-}
-
-
-static int
-pfq_group_map_free(struct pfq_group_map *map)
-{
-	int n = 0;
-	for(; n < map->size; n++)
-		free(map->entry[n].dev);
-}
-
-
-static int
-pfq_group_map_set(struct pfq_group_map *map, const char *dev, int group)
-{
-	int n = 0;
-	for(; n < map->size; n++) {
-		if (strcmp(map->entry[n].dev, dev) == 0)
-			break;
-	}
-
-	if (n == PCAP_FANOUT_GROUP_MAP_SIZE)
-		return -1;
-
-	free(map->entry[n].dev);
-	map->entry[n].dev = strdup(dev);
-	map->entry[n].group = group;
-
-	if (n == map->size)
-		map->size++;
-
-	return 0;
-}
-
-
-static int
-pfq_group_map_get(struct pfq_group_map const *map, const char *dev)
-{
-	int n = 0;
-	for(; n < map->size; n++) {
-		if (strcmp(map->entry[n].dev, dev) == 0)
-			return map->entry[n].group;
-	}
-	return -1;
-}
-
-
-typedef int (*pfq_token_handler_t)(const char *);
-
-static int
-string_for_each_token(const char *ds, const char *sep, pfq_token_handler_t handler)
-{
-        char * mutable = strdup(ds);
-        char *str, *token, *saveptr;
-        int i, ret = 0;
-
-        for (i = 1, str = mutable; ; i++, str = NULL)
-        {
-                token = strtok_r(str, sep, &saveptr);
-                if (token == NULL)
-                        break;
-                if (handler(token) < 0) {
-		        ret = PCAP_ERROR;
-			break;
-		}
-        }
-
-        free(mutable);
-	return ret;
-}
-
-
-static char *
-string_first_token(const char *str, const char *sep)
-{
-	char *end;
-
-	if ((end = strstr(str, sep))) {
-		char *ret = malloc(end - str + 1);
-		strncpy(ret, str, end - str);
-		ret[end - str] = '\0';
-		return ret;
-	}
-
-	return strdup(str);
-}
-
-
-static char *
-string_trim(char *str)
-{
-	int i = 0, j = strlen(str) - 1;
-
-	while (isspace(str[i]) && str[i] != '\0')
-		i++;
-	while (j >= 0 && isspace(str[j]))
-		j--;
-
-	str[j+1] = '\0';
-	return str+i;
-}
-
-
 static char *
 pfq_get_config_file(const char *fullname)
 {
@@ -498,46 +389,6 @@ pfq_get_devname(const char *fullname)
 	return NULL;
 }
 
-static char *
-pfq_getenv_name(char *var)
-{
-	static __thread char name[64];
-	char * end = strchr(var, '=');
-	if (end) {
-		strncpy(name, var, (size_t)min(63,end-var));
-		name[min(63,end-var)] = '\0';
-	}
-	else {
-		strcpy(name, var);
-	}
-	return name;
-}
-
-
-static char *
-pfq_getenv_value(char *var)
-{
-	char *eq = strchr(var, '=');
-	return eq ? eq+1 : NULL;
-}
-
-
-static char **
-pfq_getenv(char *name)
-{
-	static __thread char *env[64];
-        char **cur = environ;
-	int size = 0;
-
-	while (*cur && size < 64) {
-		if (strncmp(*cur, name, strlen(name)) == 0) {
-			env[size++] = *cur;
-		}
-		cur++;
-	}
-	env[size] = NULL;
-	return env;
-}
 
 
 static long int
@@ -590,24 +441,6 @@ linux_if_drops(const char * if_name)
 
 	fclose(file);
 	return dropped_pkts;
-}
-
-static int
-pfq_parse_integers(int *out, size_t max, const char *in)
-{
-	size_t n = 0; int ret = 0;
-
-	int store_int(const char *num) {
-		if (n < max) {
-			out[n++] = atoi(num);
-			ret++;
-		}
-		return 0;
-	}
-
-	if (string_for_each_token(in, ",", store_int) < 0)
-		return -1;
-	return ret;
 }
 
 
@@ -679,27 +512,27 @@ pfq_parse_env(struct pcap_fanout *opt)
 	}
 
 	if ((var = getenv("PFQ_TX_HW_QUEUE"))) {
-		if (pfq_parse_integers(opt->tx_hw_queue, 4, var) < 0) {
+		if (pcap_parse_integers(opt->tx_hw_queue, 4, var) < 0) {
 			fprintf(stderr, "[PFQ] PFQ_TX_HW_QUEUE parse error!\n");
 			return -1;
 		}
 	}
 
 	if ((var = getenv("PFQ_TX_IDX_THREAD"))) {
-		if (pfq_parse_integers(opt->tx_idx_thread, 4, var) < 0) {
+		if (pcap_parse_integers(opt->tx_idx_thread, 4, var) < 0) {
 			fprintf(stderr, "[PFQ] PFQ_TX_IDX_THREAD parse error!\n");
 			return -1;
 		}
 	}
 
-        vars = pfq_getenv("PFQ_GROUP_");
+        vars = pcap_getenv("PFQ_GROUP_");
         for(; *vars; vars++)
 	{
-		char *p, *dev = strdup(pfq_getenv_name(*vars + sizeof("PFQ_GROUP_")-1));
+		char *p, *dev = strdup(pcap_getenv_name(*vars + sizeof("PFQ_GROUP_")-1));
 		for(p = dev; *p != '\0'; ++p)
 			if (*p == '_')
 				*p = ':';
-		if (pfq_group_map_set(&opt->group_map, dev, atoi(pfq_getenv_value(*vars))) < 0) {
+		if (pcap_group_map_set(&opt->group_map, dev, atoi(pcap_getenv_value(*vars))) < 0) {
 			fprintf(stderr, "[PFQ] %s: group map error!\n", *vars);
 			return -1;
 		}
@@ -709,203 +542,6 @@ pfq_parse_env(struct pcap_fanout *opt)
 	return 0;
 }
 
-
-#define KEY(value) [KEY_ ## value] = # value
-
-#define KEY_error		-1
-#define KEY_def_group		0
-#define KEY_caplen		1
-#define KEY_rx_slots		2
-#define KEY_tx_slots            3
-#define KEY_tx_sync		4
-#define KEY_tx_hw_queue		5
-#define KEY_tx_idx_thread	6
-#define KEY_vlan		7
-#define KEY_lang		8
-
-
-struct pfq_conf_key
-{
-	const char *value;
-} pfq_conf_keys[] =
-{
-	KEY(def_group),
-	KEY(caplen),
-	KEY(rx_slots),
-	KEY(tx_slots),
-	KEY(tx_sync),
-	KEY(tx_hw_queue),
-	KEY(tx_idx_thread),
-	KEY(vlan),
-	KEY(lang)
-};
-
-
-static const char *
-pfq_conf_get_key_name(char const *key)
-{
-	static __thread char storage[64];
-	char * p = strchr(key, '@');
-	int len;
-	if (p == NULL)
-		return key;
-
-	len =  min(63, p - key);
-	strncpy(storage, key, len);
-	storage[len] = '\0';
-	return storage;
-}
-
-static int
-pfq_conf_get_key_index(char const *key)
-{
-	char * p = strchr(key, '@');
-	if (p == NULL)
-		return -1;
-	return atoi(p+1);
-}
-
-static int
-pfq_conf_find_key(const char *key, int *index)
-{
-	char const *this_key;
-        int n;
-
-	this_key = pfq_conf_get_key_name(key);
-        *index = pfq_conf_get_key_index(key);
-
-	for(n = 0; n < sizeof(pfq_conf_keys)/sizeof(pfq_conf_keys[0]); n++)
-	{
-		if (strcasecmp(pfq_conf_keys[n].value, this_key) == 0)
-			return n;
-	}
-	return -1;
-}
-
-static char *
-str_append(char *str1, const char *str2)
-{
-	char *ret;
-	if (str1) {
-		ret = realloc(str1, strlen(str1) + strlen(str2) + 1);
-		strcat(ret, str2);
-	}
-	else {
-		ret = malloc(strlen(str2) + 1);
-		strcpy(ret, str2);
-	}
-	return ret;
-}
-
-
-static void
-pfq_warn_if(int index, const char *filename, const char *key)
-{
-	if (index != PCAP_FANOUT_GROUP_DEF)
-		fprintf(stderr, "[PFQ] WARNING: %s: key %s: group ignored!\n", filename, key);
-}
-
-
-static int
-pfq_parse_config(struct pcap_fanout *opt, const char *filename)
-{
-	char line[1024];
-	FILE *file;
-	int rc = 0, n;
-
-	file = fopen(filename, "r");
-	if (!file) {
-		fprintf(stderr, "[PFQ] could not open '%s' file!\n", filename);
-		rc = -1; goto err;
-	}
-
-	for(n = 0; fgets(line, sizeof(line), file); n++) {
-
-		char *key = NULL, *value = NULL, *tkey;
-		int ktype, index, ret;
-
-		ret = sscanf(line, "%m[^=]=%m[^\n]",&key, &value);
-		if (ret < 0) {
-			fprintf(stderr, "[PFQ] %s: parse error at: %s\n", filename, key);
-			rc = -1; goto next;
-		}
-
-		if (ret == 0)
-			goto next;
-
-		/* ret > 0 */
-
-		tkey = string_trim(key);
-		if (strlen(tkey) == 0)
-			continue;
-
-		/*  strlen > 0 */
-
-		if (line[0] == '>') {
-			opt->lang_lit = str_append(opt->lang_lit, line+1);
-			opt->lang_lit = str_append(opt->lang_lit, "\n");
-			continue;
-		}
-
-		if (tkey[0] == '#') /* skip comments */
-			continue;
-
-		if (strncasecmp(tkey, "group_", 6) == 0)
-		{
-			char *dev = strdup(pfq_getenv_name(tkey + sizeof("group_")-1));
-			if (pfq_group_map_set(&opt->group_map, dev, atoi(value)) < 0) {
-				fprintf(stderr, "[PFQ] %s: '%s': group map error!\n", filename, tkey);
-				rc = -1;
-				goto next;
-			}
-			continue;
-		}
-
-		ktype = pfq_conf_find_key(tkey, &index);
-
-		index = index == -1 ?  PCAP_FANOUT_GROUP_DEF : index;
-
-		switch(ktype)
-		{
-			case KEY_def_group:     pfq_warn_if(index, filename, tkey); opt->def_group= atoi(value);  break;
-			case KEY_caplen:	pfq_warn_if(index, filename, tkey); opt->caplen   = atoi(value);  break;
-			case KEY_rx_slots:	pfq_warn_if(index, filename, tkey); opt->rx_slots = atoi(value);  break;
-			case KEY_tx_slots:	pfq_warn_if(index, filename, tkey); opt->tx_slots = atoi(value);  break;
-			case KEY_tx_sync:	pfq_warn_if(index, filename, tkey); opt->tx_sync = atoi(value);  break;
-			case KEY_tx_hw_queue:  {
-				pfq_warn_if(index, filename, tkey);
-				if (pfq_parse_integers(opt->tx_hw_queue, 4, value) < 0) {
-					fprintf(stderr, "[PFQ] %s: parse error at: %s\n", filename, tkey);
-					rc = -1;
-				}
-			} break;
-			case KEY_tx_idx_thread: {
-				pfq_warn_if(index, filename, tkey);
-				if (pfq_parse_integers(opt->tx_idx_thread, 4, value) < 0) {
-					fprintf(stderr, "[PFQ] %s: parse error at: %s\n", filename, tkey);
-					rc = -1;
-				}
-			} break;
-			case KEY_vlan: free (opt->vlan[index]); opt->vlan[index] = strdup(string_trim(value)); break;
-			case KEY_lang: free (opt->lang_src[index]); opt->lang_src[index] = strdup(string_trim(value)); break;
-			case KEY_error:
-			default: {
-				fprintf(stderr, "[PFQ] %s: parse error (unknown keyword '%s')\n", filename, tkey);
-				rc = -1;
-			} break;
-		}
-	next:
-		free(key);
-		free(value);
-		if (rc == -1)
-			break;
-	}
-
-	fclose(file);
-
-err:
-	return rc;
-}
 
 
 static char *
@@ -931,7 +567,7 @@ pfq_activate_socket_for_device(pcap_t *handle, const char *device)
 	struct pcap_pfq_linux *handlep = handle->priv;
 	int group;
 
-	group = pfq_group_map_get(&handle->opt.fanout.group_map, handlep->device);
+	group = pcap_group_map_get(&handle->opt.fanout.group_map, handlep->device);
 	if (group == -1)
 		group = handle->opt.fanout.def_group;
 
@@ -968,7 +604,7 @@ pfq_activate_socket_for_device(pcap_t *handle, const char *device)
 		/* bind to device(es) if specified */
 
 		if (device && strcmp(device, "any") != 0) {
-			if (string_for_each_token(device, DEV_SEP, bind_group) < 0)
+			if (pcap_string_for_each_token(device, DEV_SEP, bind_group) < 0)
 				return -1;
 		}
 
@@ -1000,7 +636,7 @@ pfq_activate_socket_for_device(pcap_t *handle, const char *device)
 		/* bind to device(es) if specified */
 
 		if (device && strcmp(device, "any") != 0) {
-			if (string_for_each_token(device, DEV_SEP, bind_socket) < 0)
+			if (pcap_string_for_each_token(device, DEV_SEP, bind_socket) < 0)
 				return -1;
 		}
 	}
@@ -1042,7 +678,7 @@ pfq_activate_linux(pcap_t *handle)
 	if (config != NULL) {
 		fprintf(stdout, "[PFQ] parsing config file %s...\n", config);
 
-		if (pfq_parse_config(&handle->opt.fanout, config) == -1) {
+		if (pcap_parse_config(&handle->opt.fanout, config) == -1) {
 			snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "pfq: config error");
 			return PCAP_ERROR;
 		}
@@ -1071,7 +707,7 @@ pfq_activate_linux(pcap_t *handle)
 		handle->opt.fanout.tx_sync);
 
 
-	pfq_group_map_dump(&handle->opt.fanout.group_map);
+	pcap_group_map_dump(&handle->opt.fanout.group_map);
 
 	fprintf(stdout, "[PFQ] config group default %d\n", handle->opt.fanout.def_group);
 
@@ -1179,7 +815,7 @@ pfq_activate_linux(pcap_t *handle)
 		}
 
 		if (device && strcmp(device, "any")) {
-			if (string_for_each_token(device, DEV_SEP, set_promisc) < 0) {
+			if (pcap_string_for_each_token(device, DEV_SEP, set_promisc) < 0) {
 				goto fail;
 			}
 		}
@@ -1216,7 +852,7 @@ pfq_activate_linux(pcap_t *handle)
 
 	if (device && strcmp(device, "any"))
 	{
-		if ((first_dev = string_first_token(device, DEV_SEP))) {
+		if ((first_dev = pcap_string_first_token(device, DEV_SEP))) {
 
 			size_t tot, idx;
 
@@ -1315,7 +951,7 @@ pfq_activate_linux(pcap_t *handle)
 			return 0;
 		}
 
-		if (string_for_each_token(cur_vlan, ",", set_vlan_filter) < 0)
+		if (pcap_string_for_each_token(cur_vlan, ",", set_vlan_filter) < 0)
                         goto fail;
         }
 
@@ -1416,7 +1052,7 @@ pfq_cleanup_linux(pcap_t *handle)
 	if (handlep->must_do_on_close & MUST_CLEAR_PROMISC) {
 
 		if (handlep->device && strcmp(handlep->device, "any") != 0) {
-			string_for_each_token(handlep->device, DEV_SEP, clear_promisc);
+			pcap_string_for_each_token(handlep->device, DEV_SEP, clear_promisc);
 		}
 	}
 
