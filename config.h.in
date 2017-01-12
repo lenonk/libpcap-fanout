@@ -274,6 +274,9 @@
 /* use Linux packet ring capture if available */
 #undef PCAP_SUPPORT_PACKET_RING
 
+/* target host supports PFQ socket */
+#undef PCAP_SUPPORT_PFQ
+
 /* target host supports USB sniffing */
 #undef PCAP_SUPPORT_USB
 

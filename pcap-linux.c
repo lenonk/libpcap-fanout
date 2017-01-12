@@ -142,6 +142,10 @@
 #include "pcap/sll.h"
 #include "pcap/vlan.h"
 
+#if PCAP_SUPPORT_PFQ
+#include "pcap-pfq-linux.h"
+#endif
+
 /*
  * If PF_PACKET is defined, we can use {SOCK_RAW,SOCK_DGRAM}/PF_PACKET
  * sockets rather than SOCK_PACKET sockets.
@@ -459,6 +463,29 @@ pcap_create_interface(const char *device, char *ebuf)
 {
 	pcap_t *handle;
 
+#ifdef PCAP_SUPPORT_PFQ
+	char *p;
+	char pfq_dev[256] = "PFQ_";
+	char pfq_group_dev[256] = "PFQ_GROUP_";
+
+	strncat(pfq_dev, device, sizeof(pfq_dev)-4-1);
+	strncat(pfq_group_dev, device, sizeof(pfq_dev)-4-1);
+
+	for(p = pfq_dev + sizeof("PFQ_")-1; *p != '\0'; ++p)
+		if (*p == ':') *p = '_';
+
+	for(p = pfq_group_dev + sizeof("PFQ_GROUP_")-1; *p != '\0'; ++p)
+		if (*p == ':') *p = '_';
+
+	if (strstr(device, "pfq")   ||
+	    getenv(pfq_dev)	    ||
+	    getenv(pfq_group_dev)   ||
+	    getenv("PFQ_DEF_GROUP") ||
+	    getenv("PFQ_FORCE_ALL"))
+	{
+		return pfq_create(ebuf, sizeof(struct pcap_pfq_linux));
+	}
+#endif
 	handle = pcap_create_common(ebuf, sizeof (struct pcap_linux));
 	if (handle == NULL)
 		return NULL;

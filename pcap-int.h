@@ -52,6 +52,11 @@ extern "C" {
   #include <io.h>
 #endif
 
+#ifdef PCAP_SUPPORT_PFQ
+#include <linux/pf_q.h>
+#include <pfq/pfq.h>
+#endif
+
 #if (defined(_MSC_VER) && (_MSC_VER <= 1200)) /* we are compiling with Visual Studio 6, that doesn't support the LL suffix*/
 
 /*
@@ -116,7 +121,50 @@ struct pcap_opt {
 	int	immediate;	/* immediate mode - deliver packets as soon as they arrive */
 	int	tstamp_type;
 	int	tstamp_precision;
+
+  #ifdef PCAP_SUPPORT_PFQ
+
+  #define PCAP_PFQ_GROUP_MAP_SIZE	64
+  #define PCAP_PFQ_GROUP_DEF		64
+
+	struct pfq_opt
+	{
+		int def_group;
+
+		struct pfq_group_map {
+			struct {
+				char	*dev;
+				int		group;
+
+			} entry[PCAP_PFQ_GROUP_MAP_SIZE];
+			int		size;
+		} group_map;
+
+		int group;		/* actual group of this socket */
+		int caplen;
+
+		int rx_slots;
+		int tx_slots;
+
+		int tx_sync;
+		int tx_async;
+
+		int tx_hw_queue[4];
+		int tx_idx_thread[4];
+
+		char *vlan[PCAP_PFQ_GROUP_DEF+1];
+		char *lang_src[PCAP_PFQ_GROUP_DEF+1];
+		char *lang_lit;
+
+	} pfq;
+
+  #endif
 };
+
+
+#ifdef PCAP_SUPPORT_PFQ
+#endif
+
 
 typedef int	(*activate_op_t)(pcap_t *);
 typedef int	(*can_set_rfmon_op_t)(pcap_t *);

@@ -1685,6 +1685,31 @@ if test "x$enable_bluetooth" != "xno" ; then
 	AC_SUBST(BT_MONITOR_SRC)
 fi
 
+AC_ARG_ENABLE([pfq],
+[AC_HELP_STRING([--enable-pfq],[enable PFQ support])],
+,enable_pfq=yes)
+
+if test "x$enable_pfq" != "xno" ; then
+	dnl check for PFQ sniffing support
+	case "$host_os" in
+	linux*)
+		AC_CHECK_HEADER(linux/pf_q.h,
+			[ AC_DEFINE(PCAP_SUPPORT_PFQ, 1, [target host supports PFQ socket])
+			PFQ_SRC=pcap-pfq-linux.c
+			LIBS=-lpfq
+			AC_MSG_NOTICE(PFQ socket is supported)],
+			AC_MSG_NOTICE(PFQ socket is not supported),
+			[#include <linux/if_ether.h>]
+		   )
+		;;
+	*)
+		AC_MSG_NOTICE(no PFQ support implemented for $host_os)
+		;;
+	esac
+	AC_SUBST(PCAP_SUPPORT_PFQ)
+	AC_SUBST(PFQ_SRC)
+fi
+
 AC_ARG_ENABLE([dbus],
 [AC_HELP_STRING([--enable-dbus],[enable D-Bus capture support @<:@default=yes, if support available@:>@])],
     [],
