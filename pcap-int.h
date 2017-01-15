@@ -211,6 +211,8 @@ struct pcap {
 	int activated;		/* true if the capture is really started */
 	int oldstyle;		/* if we're opening with pcap_open_live() */
 
+	int group;		/* fanout: actual group */
+
 	struct pcap_opt opt;
 
 	/*

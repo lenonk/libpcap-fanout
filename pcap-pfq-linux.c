@@ -94,7 +94,7 @@ static int
 set_kernel_filter(pcap_t *handle, struct sock_fprog *fcode)
 {
 	struct pcap_pfq_linux *handlep = handle->priv;
-	return pfq_group_fprog(handlep->q, handle->opt.fanout.group, fcode);
+	return pfq_group_fprog(handlep->q, handle->group, fcode);
 }
 
 
@@ -102,7 +102,7 @@ static int
 reset_kernel_filter(pcap_t *handle)
 {
 	struct pcap_pfq_linux *handlep = handle->priv;
-	return pfq_group_fprog_reset(handlep->q, handle->opt.fanout.group);
+	return pfq_group_fprog_reset(handlep->q, handle->group);
 }
 
 static int fix_offset(struct bpf_insn *p);
@@ -453,27 +453,6 @@ pfq_count_tx_thread(struct pcap_config const *opt)
 }
 
 
-static struct pcap_config
-pfq_opt_default(pcap_t *handle)
-{
-	return (struct pcap_config)
-	{
-		.def_group	= -1,
-		.group_map      = {{[0 ... PCAP_FANOUT_GROUP_MAP_SIZE-1]{NULL, -1}}, 0},
-		.group		= -1,
-		.caplen		= handle->snapshot,
-		.rx_slots	= 4096,
-		.tx_slots	= 4096,
-		.tx_sync	= 1,
-		.tx_async	= 0,
-		.tx_hw_queue	= {-1, -1, -1, -1},
-		.tx_idx_thread	= { Q_NO_KTHREAD, Q_NO_KTHREAD, Q_NO_KTHREAD, Q_NO_KTHREAD },
-		.vlan		= {[0 ... PCAP_FANOUT_GROUP_DEF] = NULL},
-		.lang_src	= {[0 ... PCAP_FANOUT_GROUP_DEF] = NULL},
-		.lang_lit	= NULL,
-	};
-}
-
 
 static int
 pfq_parse_env(struct pcap_config *opt)
@@ -658,7 +637,7 @@ pfq_activate_linux(pcap_t *handle)
 	char *first_dev;
 	int group;
 
-	handle->opt.fanout = pfq_opt_default(handle);
+	handle->opt.fanout = pcap_config_default(handle);
 	handle->linktype = DLT_EN10MB;
 
 	device = pfq_get_devname(handle->opt.device);
@@ -836,12 +815,12 @@ pfq_activate_linux(pcap_t *handle)
 	if (handle->opt.promisc)
 		handlep->proc_dropped = handlep->device ? linux_if_drops(handlep->device) : 0;
 
-	handle->opt.fanout.group = pfq_activate_socket_for_device(handle, device);
-	if (handle->opt.fanout.group == -1) {
+	handle->group = pfq_activate_socket_for_device(handle, device);
+	if (handle->group == -1) {
 		goto fail;
 	}
 
-	fprintf(stdout, "[PFQ] socket (%d) is using Rx group %d\n", pfq_id(handlep->q), handle->opt.fanout.group);
+	fprintf(stdout, "[PFQ] socket (%d) is using Rx group %d\n", pfq_id(handlep->q), handle->group);
 
 	/*
 	 * Bind TX to device/queue
@@ -891,17 +870,17 @@ pfq_activate_linux(pcap_t *handle)
 
 	/* Haskell bird style? */
 
-	char *cur_lang_src = handle->opt.fanout.lang_src[handle->opt.fanout.group] ?
-			     handle->opt.fanout.lang_src[handle->opt.fanout.group] :
+	char *cur_lang_src = handle->opt.fanout.lang_src[handle->group] ?
+			     handle->opt.fanout.lang_src[handle->group] :
 			     handle->opt.fanout.lang_src[PCAP_FANOUT_GROUP_DEF];
 
 	if (cur_lang_src) {
 
 		fprintf(stdout, "[PFQ] loading pfq-lang program '%s' for group %d\n",
-			cur_lang_src, handle->opt.fanout.group);
+			cur_lang_src, handle->group);
 
 		if (pfq_set_group_computation_from_file(handlep->q,
-							handle->opt.fanout.group,
+							handle->group,
 							cur_lang_src) < 0) {
 
 			fprintf(stderr, "[PFQ] error: %s\n", pfq_error(handlep->q));
@@ -911,10 +890,10 @@ pfq_activate_linux(pcap_t *handle)
 
 		fprintf(stdout, "[PFQ] loading pfq-lang program '%s' for group %d\n",
 
-			handle->opt.fanout.lang_lit, handle->opt.fanout.group);
+			handle->opt.fanout.lang_lit, handle->group);
 
 		if (pfq_set_group_computation_from_string(handlep->q,
-							  handle->opt.fanout.group,
+							  handle->group,
 							  handle->opt.fanout.lang_lit) < 0) {
 
 			fprintf(stderr, "[PFQ] error: %s\n", pfq_error(handlep->q));
@@ -925,13 +904,13 @@ pfq_activate_linux(pcap_t *handle)
 	 * Set vlan filters
 	 */
 
-	char *cur_vlan = handle->opt.fanout.vlan[handle->opt.fanout.group] ?
-			 handle->opt.fanout.vlan[handle->opt.fanout.group] :
+	char *cur_vlan = handle->opt.fanout.vlan[handle->group] ?
+			 handle->opt.fanout.vlan[handle->group] :
 			 handle->opt.fanout.vlan[PCAP_FANOUT_GROUP_DEF];
 
 	if (cur_vlan) {
 
-                if (pfq_vlan_filters_enable(handlep->q, handle->opt.fanout.group, 1) < 0) {
+                if (pfq_vlan_filters_enable(handlep->q, handle->group, 1) < 0) {
 
 			fprintf(stderr, "[PFQ] error: %s\n", pfq_error(handlep->q));
                 }
@@ -940,9 +919,9 @@ pfq_activate_linux(pcap_t *handle)
 		{
 		        int vid = atoi(vid_);
 
-			fprintf(stdout, "[PFQ] group %d setting vlan filer id=%d\n", handle->opt.fanout.group, vid);
+			fprintf(stdout, "[PFQ] group %d setting vlan filer id=%d\n", handle->group, vid);
 
-			if (pfq_vlan_set_filter(handlep->q, handle->opt.fanout.group, vid)  == -1) {
+			if (pfq_vlan_set_filter(handlep->q, handle->group, vid)  == -1) {
 				fprintf(stderr, "[PFQ] error: %s\n", pfq_error(handlep->q));
 			}
 			return 0;

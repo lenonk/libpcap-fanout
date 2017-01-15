@@ -142,7 +142,7 @@
 #include "pcap/sll.h"
 #include "pcap/vlan.h"
 
-#if PCAP_SUPPORT_PFQ
+#ifdef PCAP_SUPPORT_PFQ
 #include "pcap-pfq-linux.h"
 #endif
 

@@ -35,6 +35,9 @@
 #define	pcap_config_h
 
 #include <stddef.h>
+#include <pcap-int.h>
+
+#include "config.h"
 
 #define PCAP_CONF_KEY(value) [PCAP_CONF_KEY_ ## value] = # value
 
@@ -78,7 +81,6 @@ struct pcap_config
 	int def_group;
 	struct pcap_group_map group_map;
 
-	int group;
 	int caplen;
 
 	int rx_slots;
@@ -97,6 +99,8 @@ struct pcap_config
 
 
 typedef int (*pcap_string_handler_t)(const char *);
+
+struct pcap_config pcap_config_default(pcap_t *handle);
 
 int    pcap_parse_config(struct pcap_config *opt, const char *filename);
 

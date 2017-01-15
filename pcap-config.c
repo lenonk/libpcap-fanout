@@ -31,6 +31,7 @@
  * SUCH DAMAGE.
  */
 
+
 #include <pcap.h>
 #include <pcap-int.h>
 
@@ -41,6 +42,10 @@
 #include <ctype.h>
 #include <assert.h>
 #include <errno.h>
+
+#ifdef PCAP_SUPPORT_PFQ
+#include <pfq/pfq.h>
+#endif
 
 
 extern char **environ;
@@ -57,6 +62,27 @@ struct pcap_conf_key pcap_conf_keys[] =
 	PCAP_CONF_KEY(vlan),
 	PCAP_CONF_KEY(lang)
 };
+
+
+struct pcap_config
+pcap_config_default(pcap_t *handle)
+{
+	return (struct pcap_config)
+	{
+		.def_group	= -1,
+		.group_map      = {{[0 ... PCAP_FANOUT_GROUP_MAP_SIZE-1]{NULL, -1}}, 0},
+		.caplen		= handle->snapshot,
+		.rx_slots	= 4096,
+		.tx_slots	= 4096,
+		.tx_sync	= 1,
+		.tx_async	= 0,
+		.tx_hw_queue	= {-1, -1, -1, -1},
+		.tx_idx_thread	= { Q_NO_KTHREAD, Q_NO_KTHREAD, Q_NO_KTHREAD, Q_NO_KTHREAD },
+		.vlan		= {[0 ... PCAP_FANOUT_GROUP_DEF] = NULL},
+		.lang_src	= {[0 ... PCAP_FANOUT_GROUP_DEF] = NULL},
+		.lang_lit	= NULL,
+	};
+}
 
 
 void
