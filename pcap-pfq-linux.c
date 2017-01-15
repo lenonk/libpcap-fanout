@@ -78,8 +78,8 @@ static	int pfq_stats_linux(pcap_t *, struct pcap_stat *);
 #define MUST_CLEAR_PROMISC	0x00000001
 #define DEV_SEP			"^"
 
-pcap_t
-*pfq_create(char *ebuf, size_t size)
+pcap_t *
+pfq_create(char *ebuf, size_t size)
 {
 	pcap_t *handle;
 
@@ -367,7 +367,7 @@ pfq_get_config_file(const char *fullname)
 	if (conf == NULL)
 		return NULL;
 	conf = strdup(conf+4);
-	if (end = strchr(conf, ':')) {
+	if ((end = strchr(conf, ':'))) {
 		*end = '\0';
 	}
 	return conf;
@@ -383,7 +383,7 @@ pfq_get_devname(const char *fullname)
 	dev = strstr(fullname, "pfq");
 	if (!dev)
 		return strdup(fullname);
-	if (dev = strchr(dev, ':'))
+	if ((dev = strchr(dev, ':')))
 		return strdup(dev+1);
 	return NULL;
 }
@@ -461,8 +461,33 @@ pfq_parse_env(struct pcap_config *opt)
 {
 	char *var, **vars;
 
-	if ((var = getenv("PFQ_DEF_GROUP")))
+	if ((var = getenv("PFQ_DEF_GROUP")) ||
+	    (var = getenv("PCAP_DEF_GROUP")))
 		opt->def_group = atoi(var);
+
+	if ((var = getenv("PFQ_LANG")) ||
+	    (var = getenv("PCAP_FANOUT")))
+	{
+		free(opt->fanout[PCAP_FANOUT_GROUP_DEFAULT]);
+		opt->fanout[PCAP_FANOUT_GROUP_DEFAULT] = strdup(var);
+	}
+
+        if ((vars = pcap_getenv("PFQ_GROUP_")) ||
+            (vars = pcap_getenv("PCAP_GROUP_")))
+	{
+		for(; *vars; vars++)
+		{
+			char *p, *dev = strdup(pcap_getenv_name(*vars + sizeof("PFQ_GROUP_")-1));
+			for(p = dev; *p != '\0'; ++p)
+				if (*p == '_')
+					*p = ':';
+			if (pcap_group_map_set(&opt->group_map, dev, atoi(pcap_getenv_value(*vars))) < 0) {
+				fprintf(stderr, "[PFQ] %s: group map error!\n", *vars);
+				return -1;
+			}
+
+		}
+	}
 
 	if ((var = getenv("PFQ_CAPLEN")))
 		opt->pfq_caplen = atoi(var);
@@ -477,12 +502,7 @@ pfq_parse_env(struct pcap_config *opt)
 		opt->pfq_tx_sync = atoi(var);
 
 	if ((var = getenv("PFQ_VLAN")))
-		opt->pfq_vlan[PCAP_FANOUT_GROUP_DEF] = var;
-
-	if ((var = getenv("PFQ_LANG"))) {
-		free(opt->fanout[PCAP_FANOUT_GROUP_DEF]);
-		opt->fanout[PCAP_FANOUT_GROUP_DEF] = strdup(var);
-	}
+		opt->pfq_vlan[PCAP_FANOUT_GROUP_DEFAULT] = var;
 
 	if ((var = getenv("PFQ_TX_HW_QUEUE"))) {
 		if (pcap_parse_integers(opt->pfq_tx_hw_queue, 4, var) < 0) {
@@ -496,19 +516,6 @@ pfq_parse_env(struct pcap_config *opt)
 			fprintf(stderr, "[PFQ] PFQ_TX_IDX_THREAD parse error!\n");
 			return -1;
 		}
-	}
-        vars = pcap_getenv("PFQ_GROUP_");
-        for(; *vars; vars++)
-	{
-		char *p, *dev = strdup(pcap_getenv_name(*vars + sizeof("PFQ_GROUP_")-1));
-		for(p = dev; *p != '\0'; ++p)
-			if (*p == '_')
-				*p = ':';
-		if (pcap_group_map_set(&opt->group_map, dev, atoi(pcap_getenv_value(*vars))) < 0) {
-			fprintf(stderr, "[PFQ] %s: group map error!\n", *vars);
-			return -1;
-		}
-
 	}
 
 	return 0;
@@ -866,7 +873,7 @@ pfq_activate_linux(pcap_t *handle)
 
 	char *cur_fanout = handle->opt.config.fanout[handle->group] ?
 			   handle->opt.config.fanout[handle->group] :
-			   handle->opt.config.fanout[PCAP_FANOUT_GROUP_DEF];
+			   handle->opt.config.fanout[PCAP_FANOUT_GROUP_DEFAULT];
 
 	if (cur_fanout) {
 
@@ -901,7 +908,7 @@ pfq_activate_linux(pcap_t *handle)
 
 	char *cur_vlan = handle->opt.config.pfq_vlan[handle->group] ?
 			 handle->opt.config.pfq_vlan[handle->group] :
-			 handle->opt.config.pfq_vlan[PCAP_FANOUT_GROUP_DEF];
+			 handle->opt.config.pfq_vlan[PCAP_FANOUT_GROUP_DEFAULT];
 
 	if (cur_vlan) {
 

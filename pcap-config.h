@@ -46,6 +46,7 @@
 #define PCAP_CONF_KEY_caplen		1
 #define PCAP_CONF_KEY_fanout		2
 
+#ifdef PCAP_SUPPORT_PFQ
 /* specific PFQ keys */
 
 #define PCAP_CONF_KEY_pfq_rx_slots	3
@@ -56,9 +57,10 @@
 #define PCAP_CONF_KEY_pfq_vlan		8
 #define PCAP_CONF_KEY_EOF		9
 
+#endif
 
-#define PCAP_FANOUT_GROUP_MAP_SIZE	64
-#define PCAP_FANOUT_GROUP_DEF		64
+#define PCAP_FANOUT_GROUP_MAX		64
+#define PCAP_FANOUT_GROUP_DEFAULT	64
 
 struct pcap_conf_key
 {
@@ -73,7 +75,7 @@ struct pcap_group_map
 	struct {
 		char	*dev;
 		int	group;
-	} entry[PCAP_FANOUT_GROUP_MAP_SIZE];
+	} entry[PCAP_FANOUT_GROUP_MAX];
 
 	int size;
 };
@@ -83,7 +85,7 @@ struct pcap_config
 {
 	int    def_group;
 	struct pcap_group_map group_map;
-	char   *fanout[PCAP_FANOUT_GROUP_DEF+1];
+	char   *fanout[PCAP_FANOUT_GROUP_DEFAULT+1];
 
 #ifdef PCAP_SUPPORT_PFQ
 
@@ -98,7 +100,7 @@ struct pcap_config
 	int pfq_tx_hw_queue[4];
 	int pfq_tx_idx_thread[4];
 
-	char *pfq_vlan     [PCAP_FANOUT_GROUP_DEF+1];
+	char *pfq_vlan [PCAP_FANOUT_GROUP_DEFAULT+1];
 #endif
 
 };
@@ -116,11 +118,11 @@ char * pcap_string_trim(char *str);
 char * pcap_string_append(char *str1, const char *str2);
 
 int    pcap_parse_integers(int *out, size_t max, const char *in);
-char * pcap_getenv_name(char *var);
-char * pcap_getenv_value(char *var);
-char **pcap_getenv(char *var);
+char * pcap_getenv_name(char const *var);
+char * pcap_getenv_value(char const *var);
+char **pcap_getenv(char const *var);
 
-void pcap_group_map_dump(struct pcap_group_map *map);
+void pcap_group_map_dump(struct pcap_group_map const *map);
 void pcap_group_map_free(struct pcap_group_map *map);
 int  pcap_group_map_set (struct pcap_group_map *map, const char *dev, int group);
 int  pcap_group_map_get (struct pcap_group_map const *map, const char *dev);

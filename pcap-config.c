@@ -72,8 +72,8 @@ pcap_config_default(pcap_t *handle)
 	return (struct pcap_config)
 	{
 		.def_group		= -1
-	,	.group_map		= {{[0 ... PCAP_FANOUT_GROUP_MAP_SIZE-1] = {NULL, -1}}, 0 }
-	,	.fanout			= { [0 ... PCAP_FANOUT_GROUP_DEF] = NULL }
+	,	.group_map		= {{[0 ... PCAP_FANOUT_GROUP_MAX-1] = {NULL, -1}}, 0 }
+	,	.fanout			= { [0 ... PCAP_FANOUT_GROUP_DEFAULT] = NULL }
 #ifdef PCAP_SUPPORT_PFQ
 	,	.pfq_caplen		= handle->snapshot
 	,	.pfq_rx_slots		= 4096
@@ -82,14 +82,14 @@ pcap_config_default(pcap_t *handle)
 	,	.pfq_tx_async		= 0
 	,	.pfq_tx_hw_queue	= {-1, -1, -1, -1}
 	,	.pfq_tx_idx_thread	= { Q_NO_KTHREAD, Q_NO_KTHREAD, Q_NO_KTHREAD, Q_NO_KTHREAD }
-	,	.pfq_vlan		= {[0 ... PCAP_FANOUT_GROUP_DEF] = NULL }
+	,	.pfq_vlan		= {[0 ... PCAP_FANOUT_GROUP_DEFAULT] = NULL }
 #endif
 	};
 }
 
 
 void
-pcap_group_map_dump(struct pcap_group_map *map)
+pcap_group_map_dump(struct pcap_group_map const *map)
 {
 	int n = 0;
 	for(; n < map->size; n++)
@@ -115,7 +115,7 @@ pcap_group_map_set(struct pcap_group_map *map, const char *dev, int group)
 			break;
 	}
 
-	if (n == PCAP_FANOUT_GROUP_MAP_SIZE)
+	if (n == PCAP_FANOUT_GROUP_MAX)
 		return -1;
 
 	free(map->entry[n].dev);
@@ -144,7 +144,7 @@ pcap_group_map_get(struct pcap_group_map const *map, const char *dev)
 static void
 pcap_warn_if(int index, const char *filename, const char *key)
 {
-	if (index != PCAP_FANOUT_GROUP_DEF)
+	if (index != PCAP_FANOUT_GROUP_DEFAULT)
 		fprintf(stderr, "libpcap:%s: key %s: group ignored!\n", filename, key);
 }
 
@@ -281,7 +281,7 @@ pcap_conf_find_key(const char *key, int *index)
 
 
 char *
-pcap_getenv_name(char *var)
+pcap_getenv_name(char const *var)
 {
 	static __thread char name[64];
 	char * end = strchr(var, '=');
@@ -296,7 +296,7 @@ pcap_getenv_name(char *var)
 }
 
 char *
-pcap_getenv_value(char *var)
+pcap_getenv_value(char const *var)
 {
 	char *eq = strchr(var, '=');
 	return eq ? eq+1 : NULL;
@@ -304,7 +304,7 @@ pcap_getenv_value(char *var)
 
 
 char **
-pcap_getenv(char *name)
+pcap_getenv(char const *name)
 {
 	static __thread char *env[64];
         char **cur = environ;
@@ -358,8 +358,8 @@ pcap_parse_config(struct pcap_config *opt, const char *filename)
 		/*  strlen > 0 */
 
 		if (line[0] == '>') {
-			opt->fanout[PCAP_FANOUT_GROUP_DEF] = pcap_string_append(opt->fanout[PCAP_FANOUT_GROUP_DEF], line+1);
-			opt->fanout[PCAP_FANOUT_GROUP_DEF] = pcap_string_append(opt->fanout[PCAP_FANOUT_GROUP_DEF], "\n");
+			opt->fanout[PCAP_FANOUT_GROUP_DEFAULT] = pcap_string_append(opt->fanout[PCAP_FANOUT_GROUP_DEFAULT], line+1);
+			opt->fanout[PCAP_FANOUT_GROUP_DEFAULT] = pcap_string_append(opt->fanout[PCAP_FANOUT_GROUP_DEFAULT], "\n");
 			continue;
 		}
 
@@ -379,7 +379,7 @@ pcap_parse_config(struct pcap_config *opt, const char *filename)
 
 		ktype = pcap_conf_find_key(tkey, &index);
 
-		index = index == -1 ?  PCAP_FANOUT_GROUP_DEF : index;
+		index = index == -1 ?  PCAP_FANOUT_GROUP_DEFAULT : index;
 
 		switch(ktype)
 		{
