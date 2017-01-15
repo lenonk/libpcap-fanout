@@ -112,8 +112,8 @@ fix_program(pcap_t *handle, struct sock_fprog *fcode, int is_mmapped)
 {
 	struct pcap_pfq_linux *handlep = handle->priv;
 	size_t prog_size;
-	register int i;
-	register struct bpf_insn *p;
+	int i;
+	struct bpf_insn *p;
 	struct bpf_insn *f;
 	int len;
 
@@ -495,7 +495,6 @@ pfq_parse_env(struct pcap_config *opt)
 			return -1;
 		}
 	}
-
         vars = pcap_getenv("PFQ_GROUP_");
         for(; *vars; vars++)
 	{
@@ -634,7 +633,6 @@ pfq_activate_linux(pcap_t *handle)
 
 	handle->opt.config = pcap_config_default(handle);
 	handle->linktype = DLT_EN10MB;
-
 	device = pfq_get_devname(handle->opt.device);
 
 	fprintf(stdout, "[PFQ] socket on device %s...\n", device);
@@ -669,7 +667,6 @@ pfq_activate_linux(pcap_t *handle)
 
 	if (handle->opt.buffer_size/handle->opt.config.pfq_caplen > handle->opt.config.pfq_rx_slots)
 		handle->opt.config.pfq_rx_slots = handle->opt.buffer_size/handle->opt.config.pfq_caplen;
-
 
 	fprintf(stdout, "[PFQ] config caplen = %d, rx_slots = %d, tx_slots = %d, tx_sync = %d\n",
 		handle->opt.config.pfq_caplen,
