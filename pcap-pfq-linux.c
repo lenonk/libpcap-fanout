@@ -54,6 +54,8 @@
 #include <pfq/pfq.h>
 
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <arpa/inet.h>
@@ -862,33 +864,34 @@ pfq_activate_linux(pcap_t *handle)
 
 	/* Haskell bird style? */
 
-	char *cur_lang_src = handle->opt.config.fanout[handle->group] ?
-			     handle->opt.config.fanout[handle->group] :
-			     handle->opt.config.fanout[PCAP_FANOUT_GROUP_DEF];
+	char *cur_fanout = handle->opt.config.fanout[handle->group] ?
+			   handle->opt.config.fanout[handle->group] :
+			   handle->opt.config.fanout[PCAP_FANOUT_GROUP_DEF];
 
-	if (cur_lang_src) {
+	if (cur_fanout) {
 
-		fprintf(stdout, "[PFQ] loading pfq-lang program '%s' for group %d\n",
-			cur_lang_src, handle->group);
+		struct stat s;
 
-		if (pfq_set_group_computation_from_file(handlep->q,
-							handle->group,
-							cur_lang_src) < 0) {
+		fprintf(stdout, "[PFQ] loading pfq-lang program '%s' for group %d\n", cur_fanout, handle->group);
 
-			fprintf(stderr, "[PFQ] error: %s\n", pfq_error(handlep->q));
-		}
-	}
-	else if (handle->opt.config.fanout[PCAP_FANOUT_GROUP_DEF]) {
+		if (stat(cur_fanout, &s) == 0) { /* fanout is a filepath */
+			if (pfq_set_group_computation_from_file( handlep->q
+							       , handle->group
+							       , cur_fanout) < 0) {
 
-		fprintf(stdout, "[PFQ] loading pfq-lang program '%s' for group %d\n",
+				snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
+						"[PFQ] error: %s", pcap_strerror(errno));
+				return PCAP_ERROR;
+			}
 
-			handle->opt.config.fanout[PCAP_FANOUT_GROUP_DEF], handle->group);
-
-		if (pfq_set_group_computation_from_string(handlep->q,
-							  handle->group,
-							  handle->opt.config.fanout[PCAP_FANOUT_GROUP_DEF]) < 0) {
-
-			fprintf(stderr, "[PFQ] error: %s\n", pfq_error(handlep->q));
+		} else {
+			if (pfq_set_group_computation_from_string( handlep->q
+								  , handle->group
+								  , cur_fanout) < 0) {
+				snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
+						"[PFQ] error: %s", pcap_strerror(errno));
+				return PCAP_ERROR;
+			}
 		}
 	}
 
