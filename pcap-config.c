@@ -294,7 +294,7 @@ pcap_getenv(char *name)
 
 
 int
-pcap_parse_config(struct pcap_fanout *opt, const char *filename)
+pcap_parse_config(struct pcap_config *opt, const char *filename)
 {
 	char line[1024];
 	FILE *file;

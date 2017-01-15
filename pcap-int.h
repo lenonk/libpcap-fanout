@@ -124,7 +124,7 @@ struct pcap_opt {
 	int	tstamp_type;
 	int	tstamp_precision;
 
-	struct pcap_fanout fanout;
+	struct pcap_config fanout;
 };
 
 

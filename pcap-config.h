@@ -73,7 +73,7 @@ struct pcap_group_map
 };
 
 
-struct pcap_fanout
+struct pcap_config
 {
 	int def_group;
 	struct pcap_group_map group_map;
@@ -98,7 +98,7 @@ struct pcap_fanout
 
 typedef int (*pcap_string_handler_t)(const char *);
 
-int    pcap_parse_config(struct pcap_fanout *opt, const char *filename);
+int    pcap_parse_config(struct pcap_config *opt, const char *filename);
 
 int    pcap_string_for_each_token(const char *ds, const char *sep, pcap_string_handler_t handler);
 char * pcap_string_first_token(const char *str, const char *sep);

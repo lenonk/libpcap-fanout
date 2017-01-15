@@ -442,7 +442,7 @@ linux_if_drops(const char * if_name)
 
 
 static size_t
-pfq_count_tx_thread(struct pcap_fanout const *opt)
+pfq_count_tx_thread(struct pcap_config const *opt)
 {
 	size_t n, tx = 0;
         for(n = 0; n < 4; n++) {
@@ -453,10 +453,10 @@ pfq_count_tx_thread(struct pcap_fanout const *opt)
 }
 
 
-static struct pcap_fanout
+static struct pcap_config
 pfq_opt_default(pcap_t *handle)
 {
-	return (struct pcap_fanout)
+	return (struct pcap_config)
 	{
 		.def_group	= -1,
 		.group_map      = {{[0 ... PCAP_FANOUT_GROUP_MAP_SIZE-1]{NULL, -1}}, 0},
@@ -476,7 +476,7 @@ pfq_opt_default(pcap_t *handle)
 
 
 static int
-pfq_parse_env(struct pcap_fanout *opt)
+pfq_parse_env(struct pcap_config *opt)
 {
 	char *var, **vars;
 
