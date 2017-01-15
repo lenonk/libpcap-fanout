@@ -446,7 +446,7 @@ pfq_count_tx_thread(struct pcap_config const *opt)
 {
 	size_t n, tx = 0;
         for(n = 0; n < 4; n++) {
-		if (opt->tx_idx_thread[n] != Q_NO_KTHREAD)
+		if (opt->pfq_tx_idx_thread[n] != Q_NO_KTHREAD)
 			tx++;
 	}
 	return tx;
@@ -463,39 +463,34 @@ pfq_parse_env(struct pcap_config *opt)
 		opt->def_group = atoi(var);
 
 	if ((var = getenv("PFQ_CAPLEN")))
-		opt->caplen = atoi(var);
+		opt->pfq_caplen = atoi(var);
 
 	if ((var = getenv("PFQ_RX_SLOTS")))
-		opt->rx_slots = atoi(var);
+		opt->pfq_rx_slots = atoi(var);
 
 	if ((var = getenv("PFQ_TX_SLOTS")))
-		opt->tx_slots = atoi(var);
+		opt->pfq_tx_slots = atoi(var);
 
 	if ((var = getenv("PFQ_TX_SYNC")))
-		opt->tx_sync = atoi(var);
+		opt->pfq_tx_sync = atoi(var);
 
 	if ((var = getenv("PFQ_VLAN")))
-		opt->vlan[PCAP_FANOUT_GROUP_DEF] = var;
+		opt->pfq_vlan[PCAP_FANOUT_GROUP_DEF] = var;
 
-	if ((var = getenv("PFQ_LANG_SRC"))) {
-		free(opt->lang_src);
-		opt->lang_src[PCAP_FANOUT_GROUP_DEF] = var;
-	}
-
-	if ((var = getenv("PFQ_LANG_LIT"))) {
-		free(opt->lang_lit);
-		opt->lang_lit = var;
+	if ((var = getenv("PFQ_LANG"))) {
+		free(opt->fanout[PCAP_FANOUT_GROUP_DEF]);
+		opt->fanout[PCAP_FANOUT_GROUP_DEF] = strdup(var);
 	}
 
 	if ((var = getenv("PFQ_TX_HW_QUEUE"))) {
-		if (pcap_parse_integers(opt->tx_hw_queue, 4, var) < 0) {
+		if (pcap_parse_integers(opt->pfq_tx_hw_queue, 4, var) < 0) {
 			fprintf(stderr, "[PFQ] PFQ_TX_HW_QUEUE parse error!\n");
 			return -1;
 		}
 	}
 
 	if ((var = getenv("PFQ_TX_IDX_THREAD"))) {
-		if (pcap_parse_integers(opt->tx_idx_thread, 4, var) < 0) {
+		if (pcap_parse_integers(opt->pfq_tx_idx_thread, 4, var) < 0) {
 			fprintf(stderr, "[PFQ] PFQ_TX_IDX_THREAD parse error!\n");
 			return -1;
 		}
@@ -543,9 +538,9 @@ pfq_activate_socket_for_device(pcap_t *handle, const char *device)
 	struct pcap_pfq_linux *handlep = handle->priv;
 	int group;
 
-	group = pcap_group_map_get(&handle->opt.fanout.group_map, handlep->device);
+	group = pcap_group_map_get(&handle->opt.config.group_map, handlep->device);
 	if (group == -1)
-		group = handle->opt.fanout.def_group;
+		group = handle->opt.config.def_group;
 
 	/*
 	 * Bind Rx to groups
@@ -565,9 +560,9 @@ pfq_activate_socket_for_device(pcap_t *handle, const char *device)
 			return 0;
 		}
 
-		handlep->q = pfq_open_nogroup(handle->opt.fanout.caplen,
-					      handle->opt.fanout.rx_slots,
-					      handle->opt.fanout.tx_slots);
+		handlep->q = pfq_open_nogroup(handle->opt.config.pfq_caplen,
+					      handle->opt.config.pfq_rx_slots,
+					      handle->opt.config.pfq_tx_slots);
 		if (handlep->q == NULL) {
 			snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "%s", pfq_error(handlep->q));
 			return -1;
@@ -601,9 +596,9 @@ pfq_activate_socket_for_device(pcap_t *handle, const char *device)
 		}
 
 		handlep->q = pfq_open_group(Q_CLASS_DEFAULT, Q_POLICY_GROUP_SHARED,
-						  handle->opt.fanout.caplen,
-						  handle->opt.fanout.rx_slots,
-						  handle->opt.fanout.tx_slots);
+						  handle->opt.config.pfq_caplen,
+						  handle->opt.config.pfq_rx_slots,
+						  handle->opt.config.pfq_tx_slots);
 		if (handlep->q == NULL) {
 			snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "%s", pfq_error(handlep->q));
 			return -1;
@@ -637,7 +632,7 @@ pfq_activate_linux(pcap_t *handle)
 	char *first_dev;
 	int group;
 
-	handle->opt.fanout = pcap_config_default(handle);
+	handle->opt.config = pcap_config_default(handle);
 	handle->linktype = DLT_EN10MB;
 
 	device = pfq_get_devname(handle->opt.device);
@@ -654,7 +649,7 @@ pfq_activate_linux(pcap_t *handle)
 	if (config != NULL) {
 		fprintf(stdout, "[PFQ] parsing config file %s...\n", config);
 
-		if (pcap_parse_config(&handle->opt.fanout, config) == -1) {
+		if (pcap_parse_config(&handle->opt.config, config) == -1) {
 			snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "pfq: config error");
 			return PCAP_ERROR;
 		}
@@ -662,30 +657,30 @@ pfq_activate_linux(pcap_t *handle)
 		free(config);
 	}
 
-	if (pfq_parse_env(&handle->opt.fanout) == -1) {
+	if (pfq_parse_env(&handle->opt.config) == -1) {
 		snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "pfq: environ variable(s) error!");
 		return PCAP_ERROR;
 	}
 
-        if (handle->opt.fanout.caplen > maxlen || handle->opt.fanout.caplen == 0) {
+        if (handle->opt.config.pfq_caplen > maxlen || handle->opt.config.pfq_caplen == 0) {
                 fprintf(stdout, "[PFQ] capture length forced to %d\n", maxlen);
-                handle->opt.fanout.caplen = maxlen;
+                handle->opt.config.pfq_caplen = maxlen;
         }
 
-	if (handle->opt.buffer_size/handle->opt.fanout.caplen > handle->opt.fanout.rx_slots)
-		handle->opt.fanout.rx_slots = handle->opt.buffer_size/handle->opt.fanout.caplen;
+	if (handle->opt.buffer_size/handle->opt.config.pfq_caplen > handle->opt.config.pfq_rx_slots)
+		handle->opt.config.pfq_rx_slots = handle->opt.buffer_size/handle->opt.config.pfq_caplen;
 
 
 	fprintf(stdout, "[PFQ] config caplen = %d, rx_slots = %d, tx_slots = %d, tx_sync = %d\n",
-		handle->opt.fanout.caplen,
-		handle->opt.fanout.rx_slots,
-		handle->opt.fanout.tx_slots,
-		handle->opt.fanout.tx_sync);
+		handle->opt.config.pfq_caplen,
+		handle->opt.config.pfq_rx_slots,
+		handle->opt.config.pfq_tx_slots,
+		handle->opt.config.pfq_tx_sync);
 
 
-	pcap_group_map_dump(&handle->opt.fanout.group_map);
+	pcap_group_map_dump(&handle->opt.config.group_map);
 
-	fprintf(stdout, "[PFQ] config group default %d\n", handle->opt.fanout.def_group);
+	fprintf(stdout, "[PFQ] config group default %d\n", handle->opt.config.def_group);
 
 	handle->read_op		= pfq_read_linux;
 	handle->inject_op	= pfq_inject_linux;
@@ -832,20 +827,20 @@ pfq_activate_linux(pcap_t *handle)
 
 			size_t tot, idx;
 
-			tot = pfq_count_tx_thread(&handle->opt.fanout);
+			tot = pfq_count_tx_thread(&handle->opt.config);
 			if (tot) {
 				fprintf(stdout, "[PFQ] enabling %zu Tx async on dev %s...\n", tot, first_dev);
 
-				handle->opt.fanout.tx_async = 1;
+				handle->opt.config.pfq_tx_async = 1;
 
 				for(idx = 0; idx < tot; idx++)
 				{
 					fprintf(stdout, "[PFQ] binding Tx on dev %s, hw queue %d, Tx thread %d\n",
-						first_dev, handle->opt.fanout.tx_hw_queue[idx], handle->opt.fanout.tx_idx_thread[idx]);
+						first_dev, handle->opt.config.pfq_tx_hw_queue[idx], handle->opt.config.pfq_tx_idx_thread[idx]);
 
 					if (pfq_bind_tx(handlep->q, first_dev,
-							handle->opt.fanout.tx_hw_queue[idx],
-							handle->opt.fanout.tx_idx_thread[idx]) < 0) {
+							handle->opt.config.pfq_tx_hw_queue[idx],
+							handle->opt.config.pfq_tx_idx_thread[idx]) < 0) {
 						fprintf(stderr, "[PFQ] error: %s\n", pfq_error(handlep->q));
 						goto fail;
 					}
@@ -853,8 +848,8 @@ pfq_activate_linux(pcap_t *handle)
 			}
 			else {
 				fprintf(stdout, "[PFQ] enabling Tx on dev %s, hw queue %d\n", first_dev,
-					handle->opt.fanout.tx_hw_queue[0]);
-				if (pfq_bind_tx(handlep->q, first_dev, handle->opt.fanout.tx_hw_queue[0], -1)) {
+					handle->opt.config.pfq_tx_hw_queue[0]);
+				if (pfq_bind_tx(handlep->q, first_dev, handle->opt.config.pfq_tx_hw_queue[0], -1)) {
 					fprintf(stderr, "[PFQ] error: %s\n", pfq_error(handlep->q));
 					goto fail;
 				}
@@ -870,9 +865,9 @@ pfq_activate_linux(pcap_t *handle)
 
 	/* Haskell bird style? */
 
-	char *cur_lang_src = handle->opt.fanout.lang_src[handle->group] ?
-			     handle->opt.fanout.lang_src[handle->group] :
-			     handle->opt.fanout.lang_src[PCAP_FANOUT_GROUP_DEF];
+	char *cur_lang_src = handle->opt.config.fanout[handle->group] ?
+			     handle->opt.config.fanout[handle->group] :
+			     handle->opt.config.fanout[PCAP_FANOUT_GROUP_DEF];
 
 	if (cur_lang_src) {
 
@@ -886,15 +881,15 @@ pfq_activate_linux(pcap_t *handle)
 			fprintf(stderr, "[PFQ] error: %s\n", pfq_error(handlep->q));
 		}
 	}
-	else if (handle->opt.fanout.lang_lit) {
+	else if (handle->opt.config.fanout[PCAP_FANOUT_GROUP_DEF]) {
 
 		fprintf(stdout, "[PFQ] loading pfq-lang program '%s' for group %d\n",
 
-			handle->opt.fanout.lang_lit, handle->group);
+			handle->opt.config.fanout[PCAP_FANOUT_GROUP_DEF], handle->group);
 
 		if (pfq_set_group_computation_from_string(handlep->q,
 							  handle->group,
-							  handle->opt.fanout.lang_lit) < 0) {
+							  handle->opt.config.fanout[PCAP_FANOUT_GROUP_DEF]) < 0) {
 
 			fprintf(stderr, "[PFQ] error: %s\n", pfq_error(handlep->q));
 		}
@@ -904,9 +899,9 @@ pfq_activate_linux(pcap_t *handle)
 	 * Set vlan filters
 	 */
 
-	char *cur_vlan = handle->opt.fanout.vlan[handle->group] ?
-			 handle->opt.fanout.vlan[handle->group] :
-			 handle->opt.fanout.vlan[PCAP_FANOUT_GROUP_DEF];
+	char *cur_vlan = handle->opt.config.pfq_vlan[handle->group] ?
+			 handle->opt.config.pfq_vlan[handle->group] :
+			 handle->opt.config.pfq_vlan[PCAP_FANOUT_GROUP_DEF];
 
 	if (cur_vlan) {
 
@@ -966,10 +961,10 @@ pfq_inject_linux(pcap_t *handle, const void * buf, size_t size)
 	struct pcap_pfq_linux *handlep = handle->priv;
 	int ret;
 
-	if (handle->opt.fanout.tx_async)
+	if (handle->opt.config.pfq_tx_async)
 		ret = pfq_send_async(handlep->q, buf, size, 1);
 	else
-		ret = pfq_send(handlep->q, buf, size, handle->opt.fanout.tx_sync, 1);
+		ret = pfq_send(handlep->q, buf, size, handle->opt.config.pfq_tx_sync, 1);
         if (ret == -1) {
 		snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "%s", pfq_error(handlep->q));
 		return PCAP_ERROR;

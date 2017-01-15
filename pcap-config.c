@@ -52,15 +52,17 @@ extern char **environ;
 
 struct pcap_conf_key pcap_conf_keys[] =
 {
-	PCAP_CONF_KEY(def_group),
-	PCAP_CONF_KEY(caplen),
-	PCAP_CONF_KEY(rx_slots),
-	PCAP_CONF_KEY(tx_slots),
-	PCAP_CONF_KEY(tx_sync),
-	PCAP_CONF_KEY(tx_hw_queue),
-	PCAP_CONF_KEY(tx_idx_thread),
-	PCAP_CONF_KEY(vlan),
-	PCAP_CONF_KEY(lang)
+	PCAP_CONF_KEY(def_group)
+,	PCAP_CONF_KEY(fanout)
+,	PCAP_CONF_KEY(caplen)
+#ifdef PCAP_SUPPORT_PFQ
+,	PCAP_CONF_KEY(pfq_rx_slots)
+,	PCAP_CONF_KEY(pfq_tx_slots)
+,	PCAP_CONF_KEY(pfq_tx_sync)
+,	PCAP_CONF_KEY(pfq_tx_hw_queue)
+,	PCAP_CONF_KEY(pfq_tx_idx_thread)
+,	PCAP_CONF_KEY(pfq_vlan)
+#endif
 };
 
 
@@ -69,18 +71,19 @@ pcap_config_default(pcap_t *handle)
 {
 	return (struct pcap_config)
 	{
-		.def_group	= -1,
-		.group_map      = {{[0 ... PCAP_FANOUT_GROUP_MAP_SIZE-1]{NULL, -1}}, 0},
-		.caplen		= handle->snapshot,
-		.rx_slots	= 4096,
-		.tx_slots	= 4096,
-		.tx_sync	= 1,
-		.tx_async	= 0,
-		.tx_hw_queue	= {-1, -1, -1, -1},
-		.tx_idx_thread	= { Q_NO_KTHREAD, Q_NO_KTHREAD, Q_NO_KTHREAD, Q_NO_KTHREAD },
-		.vlan		= {[0 ... PCAP_FANOUT_GROUP_DEF] = NULL},
-		.lang_src	= {[0 ... PCAP_FANOUT_GROUP_DEF] = NULL},
-		.lang_lit	= NULL,
+		.def_group		= -1
+	,	.group_map		= {{[0 ... PCAP_FANOUT_GROUP_MAP_SIZE-1] = {NULL, -1}}, 0 }
+	,	.fanout			= { [0 ... PCAP_FANOUT_GROUP_DEF] = NULL }
+#ifdef PCAP_SUPPORT_PFQ
+	,	.pfq_caplen		= handle->snapshot
+	,	.pfq_rx_slots		= 4096
+	,	.pfq_tx_slots		= 4096
+	,	.pfq_tx_sync		= 1
+	,	.pfq_tx_async		= 0
+	,	.pfq_tx_hw_queue	= {-1, -1, -1, -1}
+	,	.pfq_tx_idx_thread	= { Q_NO_KTHREAD, Q_NO_KTHREAD, Q_NO_KTHREAD, Q_NO_KTHREAD }
+	,	.pfq_vlan		= {[0 ... PCAP_FANOUT_GROUP_DEF] = NULL }
+#endif
 	};
 }
 
@@ -90,7 +93,7 @@ pcap_group_map_dump(struct pcap_group_map *map)
 {
 	int n = 0;
 	for(; n < map->size; n++)
-		fprintf(stderr, "pcap-config: config group for dev '%s' = %d\n", map->entry[n].dev, map->entry[n].group);
+		fprintf(stderr, "libpcap: config group for dev '%s' = %d\n", map->entry[n].dev, map->entry[n].group);
 }
 
 
@@ -142,7 +145,7 @@ static void
 pcap_warn_if(int index, const char *filename, const char *key)
 {
 	if (index != PCAP_FANOUT_GROUP_DEF)
-		fprintf(stderr, "pcap-config:%s: key %s: group ignored!\n", filename, key);
+		fprintf(stderr, "libpcap:%s: key %s: group ignored!\n", filename, key);
 }
 
 
@@ -328,7 +331,7 @@ pcap_parse_config(struct pcap_config *opt, const char *filename)
 
 	file = fopen(filename, "r");
 	if (!file) {
-		fprintf(stderr, "pcap-config: could not open '%s' file!\n", filename);
+		fprintf(stderr, "libpcap: could not open '%s' file!\n", filename);
 		rc = -1; goto err;
 	}
 
@@ -355,8 +358,8 @@ pcap_parse_config(struct pcap_config *opt, const char *filename)
 		/*  strlen > 0 */
 
 		if (line[0] == '>') {
-			opt->lang_lit = pcap_string_append(opt->lang_lit, line+1);
-			opt->lang_lit = pcap_string_append(opt->lang_lit, "\n");
+			opt->fanout[PCAP_FANOUT_GROUP_DEF] = pcap_string_append(opt->fanout[PCAP_FANOUT_GROUP_DEF], line+1);
+			opt->fanout[PCAP_FANOUT_GROUP_DEF] = pcap_string_append(opt->fanout[PCAP_FANOUT_GROUP_DEF], "\n");
 			continue;
 		}
 
@@ -367,7 +370,7 @@ pcap_parse_config(struct pcap_config *opt, const char *filename)
 		{
 			char *dev = strdup(pcap_getenv_name(tkey + sizeof("group_")-1));
 			if (pcap_group_map_set(&opt->group_map, dev, atoi(value)) < 0) {
-				fprintf(stderr, "pcap-config:%s: '%s': group map error!\n", filename, tkey);
+				fprintf(stderr, "libpcap:%s: '%s': group map error!\n", filename, tkey);
 				rc = -1;
 				goto next;
 			}
@@ -380,30 +383,54 @@ pcap_parse_config(struct pcap_config *opt, const char *filename)
 
 		switch(ktype)
 		{
-			case PCAP_CONF_KEY_def_group:   pcap_warn_if(index, filename, tkey); opt->def_group = atoi(value);  break;
-			case PCAP_CONF_KEY_caplen:	pcap_warn_if(index, filename, tkey); opt->caplen    = atoi(value);  break;
-			case PCAP_CONF_KEY_rx_slots:	pcap_warn_if(index, filename, tkey); opt->rx_slots  = atoi(value);  break;
-			case PCAP_CONF_KEY_tx_slots:	pcap_warn_if(index, filename, tkey); opt->tx_slots  = atoi(value);  break;
-			case PCAP_CONF_KEY_tx_sync:	pcap_warn_if(index, filename, tkey); opt->tx_sync   = atoi(value);  break;
-			case PCAP_CONF_KEY_tx_hw_queue:  {
+			case PCAP_CONF_KEY_def_group: {
 				pcap_warn_if(index, filename, tkey);
-				if (pcap_parse_integers(opt->tx_hw_queue, 4, value) < 0) {
-					fprintf(stderr, "pcap-config:%s: parse error at: %s\n", filename, tkey);
+				opt->def_group = atoi(value);
+			} break;
+			case PCAP_CONF_KEY_caplen: {
+				pcap_warn_if(index, filename, tkey);
+				opt->pfq_caplen = atoi(value);
+			} break;
+			case PCAP_CONF_KEY_fanout: {
+				free (opt->fanout[index]);
+				opt->fanout[index] = strdup(pcap_string_trim(value));
+			} break;
+#ifdef PCAP_SUPPORT_PFQ
+			case PCAP_CONF_KEY_pfq_rx_slots: {
+				pcap_warn_if(index, filename, tkey);
+				opt->pfq_rx_slots  = atoi(value);
+			} break;
+			case PCAP_CONF_KEY_pfq_tx_slots: {
+				pcap_warn_if(index, filename, tkey);
+				opt->pfq_tx_slots  = atoi(value);
+			} break;
+			case PCAP_CONF_KEY_pfq_tx_sync: {
+				pcap_warn_if(index, filename, tkey);
+				opt->pfq_tx_sync   = atoi(value);
+			}  break;
+			case PCAP_CONF_KEY_pfq_tx_hw_queue: {
+				pcap_warn_if(index, filename, tkey);
+				if (pcap_parse_integers(opt->pfq_tx_hw_queue, 4, value) < 0) {
+					fprintf(stderr, "libpcap:%s: parse error at: %s\n", filename, tkey);
 					rc = -1;
 				}
 			} break;
-			case PCAP_CONF_KEY_tx_idx_thread: {
+			case PCAP_CONF_KEY_pfq_tx_idx_thread: {
 				pcap_warn_if(index, filename, tkey);
-				if (pcap_parse_integers(opt->tx_idx_thread, 4, value) < 0) {
-					fprintf(stderr, "pcap-config:%s: parse error at: %s\n", filename, tkey);
+				if (pcap_parse_integers(opt->pfq_tx_idx_thread, 4, value) < 0) {
+					fprintf(stderr, "libpcap:%s: parse error at: %s\n", filename, tkey);
 					rc = -1;
 				}
 			} break;
-			case PCAP_CONF_KEY_vlan: free (opt->vlan[index]); opt->vlan[index] = strdup(pcap_string_trim(value)); break;
-			case PCAP_CONF_KEY_lang: free (opt->lang_src[index]); opt->lang_src[index] = strdup(pcap_string_trim(value)); break;
+
+			case PCAP_CONF_KEY_pfq_vlan: {
+				free (opt->pfq_vlan[index]);
+				opt->pfq_vlan[index] = strdup(pcap_string_trim(value));
+			} break;
+#endif
 			case PCAP_CONF_KEY_error:
 			default: {
-				fprintf(stderr, "pcap-config:%s: parse error at: %s (invalid keyword)\n", filename, tkey);
+				fprintf(stderr, "libpcap:%s: parse error at: %s (invalid keyword)\n", filename, tkey);
 				rc = -1;
 			} break;
 		}

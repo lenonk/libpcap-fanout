@@ -44,13 +44,16 @@
 #define PCAP_CONF_KEY_error	       -1
 #define PCAP_CONF_KEY_def_group		0
 #define PCAP_CONF_KEY_caplen		1
-#define PCAP_CONF_KEY_rx_slots		2
-#define PCAP_CONF_KEY_tx_slots		3
-#define PCAP_CONF_KEY_tx_sync		4
-#define PCAP_CONF_KEY_tx_hw_queue	5
-#define PCAP_CONF_KEY_tx_idx_thread	6
-#define PCAP_CONF_KEY_vlan		7
-#define PCAP_CONF_KEY_lang		8
+#define PCAP_CONF_KEY_fanout		2
+
+/* specific PFQ keys */
+
+#define PCAP_CONF_KEY_pfq_rx_slots	3
+#define PCAP_CONF_KEY_pfq_tx_slots	4
+#define PCAP_CONF_KEY_pfq_tx_sync	5
+#define PCAP_CONF_KEY_pfq_tx_hw_queue	6
+#define PCAP_CONF_KEY_pfq_tx_idx_thread	7
+#define PCAP_CONF_KEY_pfq_vlan		8
 #define PCAP_CONF_KEY_EOF		9
 
 
@@ -78,23 +81,26 @@ struct pcap_group_map
 
 struct pcap_config
 {
-	int def_group;
+	int    def_group;
 	struct pcap_group_map group_map;
+	char   *fanout[PCAP_FANOUT_GROUP_DEF+1];
 
-	int caplen;
+#ifdef PCAP_SUPPORT_PFQ
 
-	int rx_slots;
-	int tx_slots;
+	int pfq_caplen;
 
-	int tx_sync;
-	int tx_async;
+	int pfq_rx_slots;
+	int pfq_tx_slots;
 
-	int tx_hw_queue[4];
-	int tx_idx_thread[4];
+	int pfq_tx_sync;
+	int pfq_tx_async;
 
-	char *vlan     [PCAP_FANOUT_GROUP_DEF+1];
-	char *lang_src [PCAP_FANOUT_GROUP_DEF+1];
-	char *lang_lit;
+	int pfq_tx_hw_queue[4];
+	int pfq_tx_idx_thread[4];
+
+	char *pfq_vlan     [PCAP_FANOUT_GROUP_DEF+1];
+#endif
+
 };
 
 
