@@ -373,6 +373,7 @@ PCAP_API pcap_t	*pcap_open_offline(const char *, char *);
   PCAP_API pcap_t	*pcap_fopen_offline(FILE *, char *);
 #endif /*_WIN32*/
 
+PCAP_API int	pcap_fanout(pcap_t *, int group, const char *fanout);
 PCAP_API void	pcap_close(pcap_t *);
 PCAP_API int	pcap_loop(pcap_t *, int, pcap_handler, u_char *);
 PCAP_API int	pcap_dispatch(pcap_t *, int, pcap_handler, u_char *);

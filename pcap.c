@@ -114,6 +114,18 @@ pcap_not_initialized(pcap_t *pcap)
 	return (PCAP_ERROR_NOT_ACTIVATED);
 }
 
+static int
+pcap_fanout_not_initialized(pcap_t *pcap, int group, const char *fanout)
+{
+	(void)group;
+	(void)fanout;
+	/* in case the caller doesn't check for PCAP_ERROR_NOT_ACTIVATED */
+	(void)pcap_snprintf(pcap->errbuf, sizeof(pcap->errbuf),
+	    "Fanout handle hasn't been activated yet");
+	/* this means 'not initialized' */
+	return (PCAP_ERROR_NOT_ACTIVATED);
+}
+
 #ifdef _WIN32
 static void *
 pcap_not_initialized_ptr(pcap_t *pcap)
@@ -500,6 +512,7 @@ initialize_ops(pcap_t *p)
 	 * doing their own additional cleanup.
 	 */
 	p->cleanup_op = pcap_cleanup_live_common;
+        p->fanout_op = pcap_fanout_not_initialized;
 
 	/*
 	 * In most cases, the standard one-shot callback can
@@ -2095,6 +2108,12 @@ int
 pcap_inject(pcap_t *p, const void *buf, size_t size)
 {
 	return (p->inject_op(p, buf, size));
+}
+
+int
+pcap_fanout(pcap_t *p, int group, const char *fanout)
+{
+	return (p->fanout_op(p, group, fanout));
 }
 
 void

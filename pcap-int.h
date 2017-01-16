@@ -154,6 +154,7 @@ typedef int	(*live_dump_ended_op_t)(pcap_t *, int);
 typedef PAirpcapHandle	(*get_airpcap_handle_op_t)(pcap_t *);
 #endif
 typedef void	(*cleanup_op_t)(pcap_t *);
+typedef int	(*fanout_op_t)(pcap_t *, int, const char *);
 
 /*
  * We put all the stuff used in the read code path at the beginning,
@@ -284,6 +285,7 @@ struct pcap {
 	get_airpcap_handle_op_t get_airpcap_handle_op;
 #endif
 	cleanup_op_t cleanup_op;
+	fanout_op_t fanout_op;
 };
 
 /*

@@ -1448,32 +1448,54 @@ set_poll_timeout(struct pcap_linux *handlep)
  */
 
 static int
-pcap_parse_fanout(char *str)
+pcap_parse_fanout(const char *str)
 {
-	char *fun;
 	if (!str)
 		return -1;
-
-	fun = pcap_string_trim(str);
-	if (strcasecmp(fun, "data") == 0)
+	if (strcasecmp(str, "data") == 0)
 		return PACKET_FANOUT_DATA;
-	if (strcasecmp(fun, "hash") == 0)
+	if (strcasecmp(str, "hash") == 0)
 		return PACKET_FANOUT_HASH;
-	if (strcasecmp(fun, "lb") == 0)
+	if (strcasecmp(str, "lb") == 0)
 		return PACKET_FANOUT_LB;
-	if (strcasecmp(fun, "cpu") == 0)
+	if (strcasecmp(str, "cpu") == 0)
 		return PACKET_FANOUT_CPU;
-	if (strcasecmp(fun, "rollover") == 0)
+	if (strcasecmp(str, "rollover") == 0)
 		return PACKET_FANOUT_ROLLOVER;
-	if (strcasecmp(fun, "rnd") == 0)
+	if (strcasecmp(str, "rnd") == 0)
 		return PACKET_FANOUT_RND;
-	if (strcasecmp(fun, "qm") == 0)
+	if (strcasecmp(str, "qm") == 0)
 		return PACKET_FANOUT_QM;
-	if (strcasecmp(fun, "CBPF") == 0)
+	if (strcasecmp(str, "cbpf") == 0)
 		return PACKET_FANOUT_CBPF;
-	if (strcasecmp(fun, "EBPF") == 0)
+	if (strcasecmp(str, "ebpf") == 0)
 		return PACKET_FANOUT_EBPF;
 	return -1;
+}
+
+
+static int
+pcap_fanout_linux(pcap_t *handle, int group, const char *fanout)
+{
+	int fanout_code, fanout_arg;
+	int err;
+
+	fanout_code = pcap_parse_fanout(fanout);
+	if (fanout_code < 0) {
+		pcap_snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "fanout: %s", fanout);
+		return PCAP_ERROR;
+	}
+
+	fanout_arg = (handle->group | (fanout_code << 16));
+
+	err = setsockopt(handle->fd, SOL_PACKET, PACKET_FANOUT,
+			 &fanout_arg, sizeof(fanout_arg));
+	if (err) {
+		pcap_snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "fanout: %s", pcap_strerror(errno));
+		return PCAP_ERROR;
+	}
+
+	return 0;
 }
 
 
@@ -1481,7 +1503,7 @@ static int
 pcap_activate_fanout(pcap_t *handle, const char *device)
 {
 	struct pcap_pfq_linux *handlep = handle->priv;
-	int group, fanout_arg, fanout_code, err;
+	int group, err;
 	char *fanout;
 
 	group = pcap_group_map_get(&handle->opt.config.group_map, device);
@@ -1501,24 +1523,14 @@ pcap_activate_fanout(pcap_t *handle, const char *device)
 
 	fanout = pcap_string_trim(fanout);
 
-	fanout_code = pcap_parse_fanout(fanout);
-	if (fanout_code < 0) {
-		pcap_snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "fanout: %s", fanout);
-		return PCAP_ERROR;
-	}
+	err = pcap_fanout_linux(handle, group, fanout);
+	if (err < 0)
+		return err;
 
-	fanout_arg = (handle->group | (fanout_code << 16));
-
-	err = setsockopt(handle->fd, SOL_PACKET, PACKET_FANOUT,
-			 &fanout_arg, sizeof(fanout_arg));
-	if (err) {
-		pcap_snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "fanout: %s", pcap_strerror(errno));
-		return PCAP_ERROR;
-	}
-
-	fprintf(stdout, "libpcap: group %d -> fanout '%s'(%d) enabled.\n", handle->group, fanout, fanout_code);
+	fprintf(stdout, "libpcap: group %d -> fanout '%s' enabled.\n", handle->group, fanout);
 	return 0;
 }
+
 
 
 static int
@@ -1558,6 +1570,7 @@ pcap_activate_linux(pcap_t *handle)
 	handle->cleanup_op = pcap_cleanup_linux;
 	handle->read_op = pcap_read_linux;
 	handle->stats_op = pcap_stats_linux;
+        handle->fanout_op = pcap_fanout_linux;
 
 	/*
 	 * The "any" device is a special device which causes us not
