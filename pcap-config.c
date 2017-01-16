@@ -65,6 +65,8 @@ struct pcap_conf_key pcap_conf_keys[] =
 #endif
 };
 
+static size_t pcap_conf_keys_eof = sizeof(pcap_conf_keys)/sizeof(pcap_conf_keys[0]);
+
 
 struct pcap_config
 pcap_config_default(pcap_t *handle)
@@ -271,7 +273,7 @@ pcap_conf_find_key(const char *key, int *index)
 	this_key = pcap_conf_get_key_name(key);
         *index = pcap_conf_get_key_index(key);
 
-	for(n = 0; n < PCAP_CONF_KEY_EOF; n++)
+	for(n = 0; n < pcap_conf_keys_eof ; n++)
 	{
 		if (strcasecmp(pcap_conf_keys[n].value, this_key) == 0)
 			return n;

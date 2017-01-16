@@ -55,9 +55,9 @@
 #define PCAP_CONF_KEY_pfq_tx_hw_queue	6
 #define PCAP_CONF_KEY_pfq_tx_idx_thread	7
 #define PCAP_CONF_KEY_pfq_vlan		8
-#define PCAP_CONF_KEY_EOF		9
-
 #endif
+
+
 
 #define PCAP_FANOUT_GROUP_MAX		64
 #define PCAP_FANOUT_GROUP_DEFAULT	64
