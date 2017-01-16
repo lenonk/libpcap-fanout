@@ -455,6 +455,35 @@ pfq_count_tx_thread(struct pcap_config const *opt)
 }
 
 
+static
+int pfq_fanout(pcap_t *handle, int group, const char *fanout)
+{
+	struct pcap_pfq_linux *handlep = handle->priv;
+	struct stat s;
+
+	fprintf(stdout, "[PFQ] loading pfq-lang program '%s' for group %d\n", fanout, group);
+
+	if (stat(fanout, &s) == 0) { /* fanout is a filepath */
+		if (pfq_set_group_computation_from_file( handlep->q
+						       , group
+						       , fanout) < 0) {
+
+			snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
+				 "[PFQ] error: %s", pcap_strerror(errno));
+			return PCAP_ERROR;
+		}
+
+	} else {
+		if (pfq_set_group_computation_from_string( handlep->q
+							 , group
+							 , fanout) < 0) {
+			snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
+				 "[PFQ] error: %s", pcap_strerror(errno));
+			return PCAP_ERROR;
+		}
+	}
+}
+
 
 static int
 pfq_parse_env(struct pcap_config *opt)
@@ -696,6 +725,7 @@ pfq_activate_linux(pcap_t *handle)
 	handle->setnonblock_op	= pcap_setnonblock_fd;
 	handle->stats_op	= pfq_stats_linux;
 	handle->cleanup_op	= pfq_cleanup_linux;
+	handle->fanout_op	= pfq_fanout;
 	handle->set_datalink_op	= NULL;	/* can't change data link type */
 
 	handlep->q		= NULL;
@@ -869,36 +899,15 @@ pfq_activate_linux(pcap_t *handle)
 	 * Set pfq-lang computation
 	 */
 
-	/* Haskell bird style? */
+	/* Fanout  */
 
 	char *cur_fanout = handle->opt.config.fanout[handle->group] ?
 			   handle->opt.config.fanout[handle->group] :
 			   handle->opt.config.fanout[PCAP_FANOUT_GROUP_DEFAULT];
 
 	if (cur_fanout) {
-
-		struct stat s;
-
-		fprintf(stdout, "[PFQ] loading pfq-lang program '%s' for group %d\n", cur_fanout, handle->group);
-
-		if (stat(cur_fanout, &s) == 0) { /* fanout is a filepath */
-			if (pfq_set_group_computation_from_file( handlep->q
-							       , handle->group
-							       , cur_fanout) < 0) {
-
-				snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
-						"[PFQ] error: %s", pcap_strerror(errno));
-				return PCAP_ERROR;
-			}
-
-		} else {
-			if (pfq_set_group_computation_from_string( handlep->q
-								  , handle->group
-								  , cur_fanout) < 0) {
-				snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
-						"[PFQ] error: %s", pcap_strerror(errno));
-				return PCAP_ERROR;
-			}
+		if (pfq_fanout(handle, handle->group, cur_fanout) < 0) {
+			goto fail;
 		}
 	}
 
