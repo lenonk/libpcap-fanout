@@ -1446,11 +1446,87 @@ set_poll_timeout(struct pcap_linux *handlep)
  *  be deprecated and functions be added to select that later allow
  *  modification of that values -- Torsten).
  */
+
+static int
+pcap_parse_fanout(char *str)
+{
+	char *fun;
+	if (!str)
+		return -1;
+
+	fun = pcap_string_trim(str);
+	if (strcasecmp(fun, "data") == 0)
+		return PACKET_FANOUT_DATA;
+	if (strcasecmp(fun, "hash") == 0)
+		return PACKET_FANOUT_HASH;
+	if (strcasecmp(fun, "lb") == 0)
+		return PACKET_FANOUT_LB;
+	if (strcasecmp(fun, "cpu") == 0)
+		return PACKET_FANOUT_CPU;
+	if (strcasecmp(fun, "rollover") == 0)
+		return PACKET_FANOUT_ROLLOVER;
+	if (strcasecmp(fun, "rnd") == 0)
+		return PACKET_FANOUT_RND;
+	if (strcasecmp(fun, "qm") == 0)
+		return PACKET_FANOUT_QM;
+	if (strcasecmp(fun, "CBPF") == 0)
+		return PACKET_FANOUT_CBPF;
+	if (strcasecmp(fun, "EBPF") == 0)
+		return PACKET_FANOUT_EBPF;
+	return -1;
+}
+
+
+static int
+pcap_activate_fanout(pcap_t *handle, const char *device)
+{
+	struct pcap_pfq_linux *handlep = handle->priv;
+	int group, fanout_arg, fanout_code, err;
+	char *fanout;
+
+	group = pcap_group_map_get(&handle->opt.config.group_map, device);
+	if (group == -1)
+		group = handle->opt.config.def_group;
+
+	/*
+	 * join group
+	 */
+
+	fanout = handle->opt.config.fanout[handle->group] ?
+		 handle->opt.config.fanout[handle->group] :
+		 handle->opt.config.fanout[PCAP_FANOUT_GROUP_DEFAULT];
+
+	if (group == -1 || fanout == NULL)
+		return 0;
+
+	fanout = pcap_string_trim(fanout);
+
+	fanout_code = pcap_parse_fanout(fanout);
+	if (fanout_code < 0) {
+		pcap_snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "fanout: %s", fanout);
+		return PCAP_ERROR;
+	}
+
+	fanout_arg = (handle->group | (fanout_code << 16));
+
+	err = setsockopt(handle->fd, SOL_PACKET, PACKET_FANOUT,
+			 &fanout_arg, sizeof(fanout_arg));
+	if (err) {
+		pcap_snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "fanout: %s", pcap_strerror(errno));
+		return PCAP_ERROR;
+	}
+
+	fprintf(stdout, "libpcap: group %d -> fanout '%s'(%d) enabled.\n", handle->group, fanout, fanout_code);
+	return 0;
+}
+
+
 static int
 pcap_activate_linux(pcap_t *handle)
 {
 	struct pcap_linux *handlep = handle->priv;
 	const char	*device;
+	char *config;
 	struct ifreq	ifr;
 	int		status = 0;
 	int		ret;
@@ -1540,6 +1616,31 @@ pcap_activate_linux(pcap_t *handle)
 		 * Success.
 		 * Try to use memory-mapped access.
 		 */
+
+		/*
+		 * parse configuration file...
+		 */
+
+		config = getenv("PCAP_CONFIG");
+		if (config != NULL) {
+			fprintf(stdout, "libpcap: parsing config file %s...\n", config);
+
+			if (pcap_parse_config(&handle->opt.config, config) == -1) {
+				snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "pfq: config error");
+				return PCAP_ERROR;
+			}
+		}
+
+		/*
+		 * setup fanout support
+		 */
+
+		if ((handle->group = pcap_activate_fanout(handle, device)) < 0) {
+			status = PCAP_ERROR;
+			goto fail;
+		}
+
+
 		switch (activate_mmap(handle, &status)) {
 
 		case 1:
