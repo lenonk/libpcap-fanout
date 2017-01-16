@@ -1447,29 +1447,52 @@ set_poll_timeout(struct pcap_linux *handlep)
  *  modification of that values -- Torsten).
  */
 
+static inline
+int fanout_code(int strategy, int defrag, int rollover)
+{
+	if (defrag)   strategy |= PACKET_FANOUT_FLAG_DEFRAG;
+	if (rollover) strategy |= PACKET_FANOUT_FLAG_ROLLOVER;
+	return strategy;
+}
+
 static int
 pcap_parse_fanout(const char *str)
 {
-	if (!str)
-		return -1;
-	if (strcasecmp(str, "data") == 0)
-		return PACKET_FANOUT_DATA;
-	if (strcasecmp(str, "hash") == 0)
-		return PACKET_FANOUT_HASH;
-	if (strcasecmp(str, "lb") == 0)
-		return PACKET_FANOUT_LB;
-	if (strcasecmp(str, "cpu") == 0)
-		return PACKET_FANOUT_CPU;
-	if (strcasecmp(str, "rollover") == 0)
-		return PACKET_FANOUT_ROLLOVER;
-	if (strcasecmp(str, "rnd") == 0)
-		return PACKET_FANOUT_RND;
-	if (strcasecmp(str, "qm") == 0)
-		return PACKET_FANOUT_QM;
-	if (strcasecmp(str, "cbpf") == 0)
-		return PACKET_FANOUT_CBPF;
-	if (strcasecmp(str, "ebpf") == 0)
-		return PACKET_FANOUT_EBPF;
+	int defrag = 0, rollover = 0;
+
+	if (!str) return -1;
+
+	/* parse options */
+
+        if (strcasestr(str, "+defrag"))
+		defrag = 1;
+        if (strcasestr(str, "+rollover"))
+		rollover = 1;
+
+	/* parse strategy */
+
+#define _(x)  x, (sizeof(x)-1)
+
+	if (strncasecmp(str, _("data")) == 0)
+		return fanout_code(PACKET_FANOUT_DATA, defrag, rollover);
+	if (strncasecmp(str, _("hash")) == 0)
+		return fanout_code(PACKET_FANOUT_HASH, defrag, rollover);
+	if (strncasecmp(str, _("lb")) == 0)
+		return fanout_code(PACKET_FANOUT_LB, defrag, rollover);
+	if (strncasecmp(str, _("cpu")) == 0)
+		return fanout_code(PACKET_FANOUT_CPU, defrag, rollover);
+	if (strncasecmp(str, _("rollover")) == 0)
+	        return fanout_code(PACKET_FANOUT_ROLLOVER, defrag, rollover);
+	if (strncasecmp(str, _("rnd")) == 0)
+	        return fanout_code(PACKET_FANOUT_RND, defrag, rollover);
+	if (strncasecmp(str, _("qm")) == 0)
+	        return fanout_code(PACKET_FANOUT_QM, defrag, rollover);;
+	if (strncasecmp(str, _("cbpf")) == 0)
+	        return fanout_code(PACKET_FANOUT_CBPF, defrag, rollover);
+	if (strncasecmp(str, _("ebpf")) == 0)
+		return fanout_code(PACKET_FANOUT_EBPF, defrag, rollover);
+#undef _
+
 	return -1;
 }
 
