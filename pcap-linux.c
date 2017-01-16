@@ -1555,6 +1555,38 @@ pcap_activate_fanout(pcap_t *handle, const char *device)
 }
 
 
+static int
+pcap_parse_env(struct pcap_config *opt)
+{
+	char *var, **vars;
+
+	if ((var = getenv("PCAP_DEF_GROUP")))
+		opt->def_group = atoi(var);
+
+	if ((var = getenv("PCAP_FANOUT")))
+	{
+		free(opt->fanout[PCAP_FANOUT_GROUP_DEFAULT]);
+		opt->fanout[PCAP_FANOUT_GROUP_DEFAULT] = strdup(var);
+	}
+
+        if ((vars = pcap_getenv("PCAP_GROUP_")))
+	{
+		for(; *vars; vars++)
+		{
+			char *p, *dev = strdup(pcap_getenv_name(*vars + sizeof("PFQ_GROUP_")-1));
+			for(p = dev; *p != '\0'; ++p)
+				if (*p == '_')
+					*p = ':';
+			if (pcap_group_map_set(&opt->group_map, dev, atoi(pcap_getenv_value(*vars))) < 0) {
+				fprintf(stderr, "[PFQ] %s: group map error!\n", *vars);
+				return -1;
+			}
+
+		}
+	}
+
+	return 0;
+}
 
 static int
 pcap_activate_linux(pcap_t *handle)
@@ -1665,6 +1697,15 @@ pcap_activate_linux(pcap_t *handle)
 				snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "pfq: config error");
 				return PCAP_ERROR;
 			}
+		}
+
+		/*
+		 * parse environ variables
+		 */
+
+		if (pcap_parse_env(&handle->opt.config) == -1) {
+			snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "libpcap: environ variable(s) error!");
+			return PCAP_ERROR;
 		}
 
 		/*
