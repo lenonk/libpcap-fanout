@@ -1505,7 +1505,7 @@ pcap_fanout_linux(pcap_t *handle, int group, const char *fanout)
 
 	fanout_code = pcap_parse_fanout(fanout);
 	if (fanout_code < 0) {
-		pcap_snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "fanout: %s", fanout);
+		pcap_snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "fanout: %s!", fanout);
 		return PCAP_ERROR;
 	}
 
@@ -1514,7 +1514,7 @@ pcap_fanout_linux(pcap_t *handle, int group, const char *fanout)
 	err = setsockopt(handle->fd, SOL_PACKET, PACKET_FANOUT,
 			 &fanout_arg, sizeof(fanout_arg));
 	if (err) {
-		pcap_snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "fanout: %s", pcap_strerror(errno));
+		pcap_snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "fanout: %s!", pcap_strerror(errno));
 		return PCAP_ERROR;
 	}
 
