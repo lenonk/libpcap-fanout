@@ -464,21 +464,24 @@ int pfq_fanout(pcap_t *handle, int group, const char *fanout)
 	fprintf(stdout, "[PFQ] loading pfq-lang program '%s' for group %d\n", fanout, group);
 
 	if (stat(fanout, &s) == 0) { /* fanout is a filepath */
+
+		fprintf(stdout, "[PFQ] loading pfq-lang source '%s' for group %d\n", fanout, group);
 		if (pfq_set_group_computation_from_file( handlep->q
 						       , group
 						       , fanout) < 0) {
 
 			snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
-				 "[PFQ] error: %s", pcap_strerror(errno));
+				 "[PFQ] error: %s", pfq_error(handlep->q));
 			return PCAP_ERROR;
 		}
 
 	} else {
+		fprintf(stdout, "[PFQ] loading in-line pfq-lang '%s' for group %d\n", fanout, group);
 		if (pfq_set_group_computation_from_string( handlep->q
 							 , group
 							 , fanout) < 0) {
 			snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
-				 "[PFQ] error: %s", pcap_strerror(errno));
+				 "[PFQ] error: %s", pfq_error(handlep->q));
 			return PCAP_ERROR;
 		}
 	}
