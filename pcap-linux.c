@@ -1473,24 +1473,42 @@ pcap_parse_fanout(const char *str)
 
 #define _(x)  x, (sizeof(x)-1)
 
+#ifdef PACKET_FANOUT_DATA
 	if (strncasecmp(str, _("data")) == 0)
 		return fanout_code(PACKET_FANOUT_DATA, defrag, rollover);
+#endif
+#ifdef PACKET_FANOUT_HASH
 	if (strncasecmp(str, _("hash")) == 0)
 		return fanout_code(PACKET_FANOUT_HASH, defrag, rollover);
+#endif
+#ifdef PACKET_FANOUT_LB
 	if (strncasecmp(str, _("lb")) == 0)
 		return fanout_code(PACKET_FANOUT_LB, defrag, rollover);
+#endif
+#ifdef PACKET_FANOUT_CPU
 	if (strncasecmp(str, _("cpu")) == 0)
 		return fanout_code(PACKET_FANOUT_CPU, defrag, rollover);
+#endif
+#ifdef PACKET_FANOUT_ROLLOVER
 	if (strncasecmp(str, _("rollover")) == 0)
 	        return fanout_code(PACKET_FANOUT_ROLLOVER, defrag, rollover);
+#endif
+#ifdef PACKET_FANOUT_RND
 	if (strncasecmp(str, _("rnd")) == 0)
 	        return fanout_code(PACKET_FANOUT_RND, defrag, rollover);
+#endif
+#ifdef PACKET_FANOUT_QM
 	if (strncasecmp(str, _("qm")) == 0)
-	        return fanout_code(PACKET_FANOUT_QM, defrag, rollover);;
+	        return fanout_code(PACKET_FANOUT_QM, defrag, rollover);
+#endif
+#ifdef PACKET_FANOUT_CBPF
 	if (strncasecmp(str, _("cbpf")) == 0)
 	        return fanout_code(PACKET_FANOUT_CBPF, defrag, rollover);
+#endif
+#ifdef PACKET_FANOUT_EBPF
 	if (strncasecmp(str, _("ebpf")) == 0)
 		return fanout_code(PACKET_FANOUT_EBPF, defrag, rollover);
+#endif
 #undef _
 
 	return -1;
