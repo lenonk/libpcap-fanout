@@ -461,11 +461,11 @@ int pfq_fanout(pcap_t *handle, int group, const char *fanout)
 	struct pcap_pfq_linux *handlep = handle->priv;
 	struct stat s;
 
-	fprintf(stdout, "[PFQ] loading pfq-lang program '%s' for group %d\n", fanout, group);
+	fprintf(stderr, "[PFQ] loading pfq-lang program '%s' for group %d\n", fanout, group);
 
 	if (stat(fanout, &s) == 0) { /* fanout is a filepath */
 
-		fprintf(stdout, "[PFQ] loading pfq-lang source '%s' for group %d\n", fanout, group);
+		fprintf(stderr, "[PFQ] loading pfq-lang source '%s' for group %d\n", fanout, group);
 		if (pfq_set_group_computation_from_file( handlep->q
 						       , group
 						       , fanout) < 0) {
@@ -476,7 +476,7 @@ int pfq_fanout(pcap_t *handle, int group, const char *fanout)
 		}
 
 	} else {
-		fprintf(stdout, "[PFQ] loading in-line pfq-lang '%s' for group %d\n", fanout, group);
+		fprintf(stderr, "[PFQ] loading in-line pfq-lang '%s' for group %d\n", fanout, group);
 		if (pfq_set_group_computation_from_string( handlep->q
 							 , group
 							 , fanout) < 0) {
@@ -592,7 +592,7 @@ pfq_activate_socket_for_device(pcap_t *handle, const char *device)
 		{
 			const char *dev = pfq_get_real_devname(_dev);
 
-			fprintf(stdout, "[PFQ] binding Rx group %d on dev %s...\n", group, dev);
+			fprintf(stderr, "[PFQ] binding Rx group %d on dev %s...\n", group, dev);
 
 			if (pfq_bind_group(handlep->q, group, dev, Q_ANY_QUEUE) == -1) {
 				fprintf(stderr, "[PFQ] error: %s\n", pfq_error(handlep->q));
@@ -627,7 +627,7 @@ pfq_activate_socket_for_device(pcap_t *handle, const char *device)
 		{
 			const char *dev = pfq_get_real_devname(_dev);
 
-			fprintf(stdout, "[PFQ] binding socket on dev %s...\n", dev);
+			fprintf(stderr, "[PFQ] binding socket on dev %s...\n", dev);
 
 			if (pfq_bind(handlep->q, dev, Q_ANY_QUEUE) == -1) {
 				fprintf(stderr, "[PFQ] error: %s\n", pfq_error(handlep->q));
@@ -676,7 +676,7 @@ pfq_activate_linux(pcap_t *handle)
 	handle->linktype = DLT_EN10MB;
 	device = pfq_get_devname(handle->opt.device);
 
-	fprintf(stdout, "[PFQ] socket on device %s...\n", device);
+	fprintf(stderr, "[PFQ] socket on device %s...\n", device);
 
 	config = pfq_get_config_file(handle->opt.device);
 	if (config == NULL) {
@@ -686,7 +686,7 @@ pfq_activate_linux(pcap_t *handle)
 	}
 
 	if (config != NULL) {
-		fprintf(stdout, "[PFQ] parsing config file %s...\n", config);
+		fprintf(stderr, "[PFQ] parsing config file %s...\n", config);
 
 		if (pcap_parse_config(&handle->opt.config, config) == -1) {
 			snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "pfq: config error");
@@ -702,14 +702,14 @@ pfq_activate_linux(pcap_t *handle)
 	}
 
         if (handle->opt.config.pfq_caplen > maxlen || handle->opt.config.pfq_caplen == 0) {
-                fprintf(stdout, "[PFQ] capture length forced to %d\n", maxlen);
+                fprintf(stderr, "[PFQ] capture length forced to %d\n", maxlen);
                 handle->opt.config.pfq_caplen = maxlen;
         }
 
 	if (handle->opt.buffer_size/handle->opt.config.pfq_caplen > handle->opt.config.pfq_rx_slots)
 		handle->opt.config.pfq_rx_slots = handle->opt.buffer_size/handle->opt.config.pfq_caplen;
 
-	fprintf(stdout, "[PFQ] config caplen = %d, rx_slots = %d, tx_slots = %d, tx_sync = %d\n",
+	fprintf(stderr, "[PFQ] config caplen = %d, rx_slots = %d, tx_slots = %d, tx_sync = %d\n",
 		handle->opt.config.pfq_caplen,
 		handle->opt.config.pfq_rx_slots,
 		handle->opt.config.pfq_tx_slots,
@@ -718,7 +718,7 @@ pfq_activate_linux(pcap_t *handle)
 
 	pcap_group_map_dump(&handle->opt.config.group_map);
 
-	fprintf(stdout, "[PFQ] config group default %d\n", handle->opt.config.def_group);
+	fprintf(stderr, "[PFQ] config group default %d\n", handle->opt.config.def_group);
 
 	handle->read_op		= pfq_read_linux;
 	handle->inject_op	= pfq_inject_linux;
@@ -782,7 +782,7 @@ pfq_activate_linux(pcap_t *handle)
 				return PCAP_ERROR;
 			}
 
-			fprintf(stdout, "[PFQ] set promisc on dev %s...\n", dev);
+			fprintf(stderr, "[PFQ] set promisc on dev %s...\n", dev);
 
 			if ((ifr.ifr_flags & IFF_PROMISC) == 0) {
 
@@ -854,7 +854,7 @@ pfq_activate_linux(pcap_t *handle)
 		goto fail;
 	}
 
-	fprintf(stdout, "[PFQ] socket (%d) is using Rx group %d\n", pfq_id(handlep->q), handle->group);
+	fprintf(stderr, "[PFQ] socket (%d) is using Rx group %d\n", pfq_id(handlep->q), handle->group);
 
 	/*
 	 * Bind TX to device/queue
@@ -868,13 +868,13 @@ pfq_activate_linux(pcap_t *handle)
 
 			tot = pfq_count_tx_thread(&handle->opt.config);
 			if (tot) {
-				fprintf(stdout, "[PFQ] enabling %zu Tx async on dev %s...\n", tot, first_dev);
+				fprintf(stderr, "[PFQ] enabling %zu Tx async on dev %s...\n", tot, first_dev);
 
 				handle->opt.config.pfq_tx_async = 1;
 
 				for(idx = 0; idx < tot; idx++)
 				{
-					fprintf(stdout, "[PFQ] binding Tx on dev %s, hw queue %d, Tx thread %d\n",
+					fprintf(stderr, "[PFQ] binding Tx on dev %s, hw queue %d, Tx thread %d\n",
 						first_dev, handle->opt.config.pfq_tx_hw_queue[idx], handle->opt.config.pfq_tx_idx_thread[idx]);
 
 					if (pfq_bind_tx(handlep->q, first_dev,
@@ -886,7 +886,7 @@ pfq_activate_linux(pcap_t *handle)
 				}
 			}
 			else {
-				fprintf(stdout, "[PFQ] enabling Tx on dev %s, hw queue %d\n", first_dev,
+				fprintf(stderr, "[PFQ] enabling Tx on dev %s, hw queue %d\n", first_dev,
 					handle->opt.config.pfq_tx_hw_queue[0]);
 				if (pfq_bind_tx(handlep->q, first_dev, handle->opt.config.pfq_tx_hw_queue[0], -1)) {
 					fprintf(stderr, "[PFQ] error: %s\n", pfq_error(handlep->q));
@@ -933,7 +933,7 @@ pfq_activate_linux(pcap_t *handle)
 		{
 		        int vid = atoi(vid_);
 
-			fprintf(stdout, "[PFQ] group %d setting vlan filer id=%d\n", handle->group, vid);
+			fprintf(stderr, "[PFQ] group %d setting vlan filer id=%d\n", handle->group, vid);
 
 			if (pfq_vlan_set_filter(handlep->q, handle->group, vid)  == -1) {
 				fprintf(stderr, "[PFQ] error: %s\n", pfq_error(handlep->q));
@@ -1021,7 +1021,7 @@ pfq_cleanup_linux(pcap_t *handle)
 				 * turn it off.
 				 */
 
-				fprintf(stdout, "[PFQ] clear promisc on dev %s...\n", dev);
+				fprintf(stderr, "[PFQ] clear promisc on dev %s...\n", dev);
 
 				ifr.ifr_flags &= ~IFF_PROMISC;
 				if (ioctl(handle->fd, SIOCSIFFLAGS,
@@ -1047,7 +1047,7 @@ pfq_cleanup_linux(pcap_t *handle)
 	}
 
 	if(handlep->q) {
-		fprintf(stdout, "[PFQ] close socket.\n");
+		fprintf(stderr, "[PFQ] close socket.\n");
 		pfq_close(handlep->q);
 		handlep->q = NULL;
 	}
@@ -1153,7 +1153,7 @@ pfq_read_linux(pcap_t *handle, int max_packets, pcap_handler callback, u_char *u
 static int
 pfq_setdirection_linux(pcap_t *handle, pcap_direction_t d)
 {
-        fprintf(stdout, "[PFQ] set direciton not support with PFQ.\n");
+        fprintf(stderr, "[PFQ] set direciton not support with PFQ.\n");
 	return 0;
 }
 

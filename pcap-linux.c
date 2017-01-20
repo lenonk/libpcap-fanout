@@ -1569,7 +1569,7 @@ pcap_activate_fanout(pcap_t *handle, const char *device)
 	if (err < 0)
 		return err;
 
-	fprintf(stdout, "libpcap: group %d -> fanout '%s' enabled.\n", handle->group, fanout);
+	fprintf(stderr, "libpcap: group %d -> fanout '%s' enabled.\n", handle->group, fanout);
 	return 0;
 }
 
@@ -1712,7 +1712,7 @@ pcap_activate_linux(pcap_t *handle)
 
 		config = getenv("PCAP_CONFIG");
 		if (config != NULL) {
-			fprintf(stdout, "libpcap: parsing config file %s...\n", config);
+			fprintf(stderr, "libpcap: parsing config file %s...\n", config);
 
 			if (pcap_parse_config(&handle->opt.config, config) == -1) {
 				snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "pfq: config error");
