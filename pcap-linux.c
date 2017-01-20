@@ -1562,6 +1562,7 @@ pcap_activate_fanout(pcap_t *handle, const char *device)
 	if (group == -1 || fanout == NULL)
 		return 0;
 
+	handle->group = group;
 	fanout = pcap_string_trim(fanout);
 
 	err = pcap_fanout_linux(handle, group, fanout);
@@ -1578,7 +1579,9 @@ pcap_parse_env(struct pcap_config *opt)
 {
 	char *var, **vars;
 
-	if ((var = getenv("PCAP_DEF_GROUP")))
+	if ((var = getenv("PCAP_DEF_GROUP")) ||
+	    (var = getenv("PCAP_GROUP"))     ||
+	    (var = getenv("PCAP_FANOUT_ID")))
 		opt->def_group = atoi(var);
 
 	if ((var = getenv("PCAP_FANOUT")))
