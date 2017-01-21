@@ -1559,8 +1559,11 @@ pcap_activate_fanout(pcap_t *handle, const char *device)
 		 handle->opt.config.fanout[handle->group] :
 		 handle->opt.config.fanout[PCAP_FANOUT_GROUP_DEFAULT];
 
-	if (group == -1 || fanout == NULL)
+	if (fanout == NULL)
 		return 0;
+
+	if (group == -1)
+		return -1;
 
 	handle->group = group;
 	fanout = pcap_string_trim(fanout);
@@ -1569,7 +1572,7 @@ pcap_activate_fanout(pcap_t *handle, const char *device)
 	if (err < 0)
 		return err;
 
-	fprintf(stderr, "libpcap: group %d -> fanout '%s' enabled.\n", handle->group, fanout);
+	fprintf(stderr, "libpcap: fanout_group %d -> fanout '%s' enabled.\n", handle->group, fanout);
 	return 0;
 }
 
