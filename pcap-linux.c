@@ -1578,19 +1578,24 @@ pcap_activate_fanout(pcap_t *handle, const char *device)
 
 
 static int
-pcap_parse_env(struct pcap_config *opt)
+pcap_parse_env(struct pcap_config *conf)
 {
 	char *var, **vars;
 
 	if ((var = getenv("PCAP_DEF_GROUP")) ||
 	    (var = getenv("PCAP_GROUP"))     ||
 	    (var = getenv("PCAP_FANOUT_ID")))
-		opt->def_group = atoi(var);
+		conf->def_group = atoi(var);
 
 	if ((var = getenv("PCAP_FANOUT")))
 	{
-		free(opt->fanout[PCAP_FANOUT_GROUP_DEFAULT]);
-		opt->fanout[PCAP_FANOUT_GROUP_DEFAULT] = strdup(var);
+		free(conf->fanout[PCAP_FANOUT_GROUP_DEFAULT]);
+		conf->fanout[PCAP_FANOUT_GROUP_DEFAULT] = strdup(var);
+	}
+
+	if ((var = getenv("PCAP_CAPLEN")))
+	{
+		conf->caplen = atoi(var);
 	}
 
         if ((vars = pcap_getenv("PCAP_GROUP_")))
@@ -1601,7 +1606,7 @@ pcap_parse_env(struct pcap_config *opt)
 			for(p = dev; *p != '\0'; ++p)
 				if (*p == '_')
 					*p = ':';
-			if (pcap_group_map_set(&opt->group_map, dev, atoi(pcap_getenv_value(*vars))) < 0) {
+			if (pcap_group_map_set(&conf->group_map, dev, atoi(pcap_getenv_value(*vars))) < 0) {
 				fprintf(stderr, "[PFQ] %s: group map error!\n", *vars);
 				return -1;
 			}
@@ -1732,6 +1737,7 @@ pcap_activate_linux(pcap_t *handle)
 			return PCAP_ERROR;
 		}
 
+		handle->snapshot = min(handle->snapshot, handle->opt.config.caplen);
 		/*
 		 * setup fanout support
 		 */

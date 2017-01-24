@@ -54,8 +54,8 @@ struct pcap_conf_key pcap_conf_keys[] =
 {
 	PCAP_CONF_KEY(def_group)
 ,	PCAP_CONF_KEY(fanout)
+,	PCAP_CONF_KEY(caplen)
 #ifdef PCAP_SUPPORT_PFQ
-,	PCAP_CONF_KEY(pfq_caplen)
 ,	PCAP_CONF_KEY(pfq_rx_slots)
 ,	PCAP_CONF_KEY(pfq_tx_slots)
 ,	PCAP_CONF_KEY(pfq_tx_sync)
@@ -76,8 +76,8 @@ pcap_config_default(pcap_t *handle)
 		.def_group		= -1
 	,	.group_map		= {{[0 ... PCAP_FANOUT_GROUP_MAX-1] = {NULL, -1}}, 0 }
 	,	.fanout			= { [0 ... PCAP_FANOUT_GROUP_DEFAULT] = NULL }
+	,	.caplen			= handle->snapshot
 #ifdef PCAP_SUPPORT_PFQ
-	,	.pfq_caplen		= handle->snapshot
 	,	.pfq_rx_slots		= 4096
 	,	.pfq_tx_slots		= 4096
 	,	.pfq_tx_sync		= 1
@@ -393,11 +393,11 @@ pcap_parse_config(struct pcap_config *opt, const char *filename)
 				free (opt->fanout[index]);
 				opt->fanout[index] = strdup(pcap_string_trim(value));
 			} break;
-#ifdef PCAP_SUPPORT_PFQ
-			case PCAP_CONF_KEY_pfq_caplen: {
+			case PCAP_CONF_KEY_caplen: {
 				pcap_warn_if(index, filename, tkey);
-				opt->pfq_caplen = atoi(value);
+				opt->caplen = atoi(value);
 			} break;
+#ifdef PCAP_SUPPORT_PFQ
 			case PCAP_CONF_KEY_pfq_rx_slots: {
 				pcap_warn_if(index, filename, tkey);
 				opt->pfq_rx_slots  = atoi(value);

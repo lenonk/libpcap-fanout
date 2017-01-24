@@ -44,11 +44,11 @@
 #define PCAP_CONF_KEY_error	       -1
 #define PCAP_CONF_KEY_def_group		0
 #define PCAP_CONF_KEY_fanout		1
+#define PCAP_CONF_KEY_caplen		2
 
 #ifdef PCAP_SUPPORT_PFQ
 /* specific PFQ keys */
 
-#define PCAP_CONF_KEY_pfq_caplen	2
 #define PCAP_CONF_KEY_pfq_rx_slots	3
 #define PCAP_CONF_KEY_pfq_tx_slots	4
 #define PCAP_CONF_KEY_pfq_tx_sync	5
@@ -86,10 +86,10 @@ struct pcap_config
 	int    def_group;
 	struct pcap_group_map group_map;
 	char   *fanout[PCAP_FANOUT_GROUP_DEFAULT+1];
+	int    caplen;
 
 #ifdef PCAP_SUPPORT_PFQ
 
-	int pfq_caplen;
 
 	int pfq_rx_slots;
 	int pfq_tx_slots;

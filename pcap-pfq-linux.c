@@ -521,8 +521,9 @@ pfq_parse_env(struct pcap_config *opt)
 		}
 	}
 
-	if ((var = getenv("PFQ_CAPLEN")))
-		opt->pfq_caplen = atoi(var);
+	if ((var = getenv("PFQ_CAPLEN")) ||
+	    (var = getenv("PCAP_CAPLEN")))
+		opt->caplen = atoi(var);
 
 	if ((var = getenv("PFQ_RX_SLOTS")))
 		opt->pfq_rx_slots = atoi(var);
@@ -600,7 +601,7 @@ pfq_activate_socket_for_device(pcap_t *handle, const char *device)
 			return 0;
 		}
 
-		handlep->q = pfq_open_nogroup(handle->opt.config.pfq_caplen,
+		handlep->q = pfq_open_nogroup(min(handle->snapshot, handle->opt.config.caplen),
 					      handle->opt.config.pfq_rx_slots,
 					      handle->opt.config.pfq_tx_slots);
 		if (handlep->q == NULL) {
@@ -636,7 +637,7 @@ pfq_activate_socket_for_device(pcap_t *handle, const char *device)
 		}
 
 		handlep->q = pfq_open_group(Q_CLASS_DEFAULT, Q_POLICY_GROUP_SHARED,
-						  handle->opt.config.pfq_caplen,
+						  min(handle->snapshot, handle->opt.config.caplen),
 						  handle->opt.config.pfq_rx_slots,
 						  handle->opt.config.pfq_tx_slots);
 		if (handlep->q == NULL) {
@@ -701,16 +702,16 @@ pfq_activate_linux(pcap_t *handle)
 		return PCAP_ERROR;
 	}
 
-        if (handle->opt.config.pfq_caplen > maxlen || handle->opt.config.pfq_caplen == 0) {
+        if (handle->opt.config.caplen > maxlen || handle->opt.config.caplen == 0) {
                 fprintf(stderr, "[PFQ] capture length forced to %d\n", maxlen);
-                handle->opt.config.pfq_caplen = maxlen;
+                handle->opt.config.caplen = maxlen;
         }
 
-	if (handle->opt.buffer_size/handle->opt.config.pfq_caplen > handle->opt.config.pfq_rx_slots)
-		handle->opt.config.pfq_rx_slots = handle->opt.buffer_size/handle->opt.config.pfq_caplen;
+	if (handle->opt.buffer_size/handle->opt.config.caplen > handle->opt.config.pfq_rx_slots)
+		handle->opt.config.pfq_rx_slots = handle->opt.buffer_size/handle->opt.config.caplen;
 
 	fprintf(stderr, "[PFQ] config caplen = %d, rx_slots = %d, tx_slots = %d, tx_sync = %d\n",
-		handle->opt.config.pfq_caplen,
+		handle->opt.config.caplen,
 		handle->opt.config.pfq_rx_slots,
 		handle->opt.config.pfq_tx_slots,
 		handle->opt.config.pfq_tx_sync);
