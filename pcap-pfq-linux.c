@@ -491,12 +491,16 @@ pfq_parse_env(struct pcap_config *opt)
 {
 	char *var, **vars;
 
-	if ((var = getenv("PFQ_DEF_GROUP")) ||
-	    (var = getenv("PCAP_DEF_GROUP")))
+	if ((var = getenv("PFQ_DEF_GROUP"))   ||
+	    (var = getenv("PFQ_GROUP"))       ||
+	    (var = getenv("PCAP_DEF_GROUP"))  ||
+	    (var = getenv("PCAP_GROUP")))
 		opt->def_group = atoi(var);
 
-	if ((var = getenv("PFQ_LANG")) ||
-	    (var = getenv("PCAP_FANOUT")))
+	if ((var = getenv("PFQ_LANG"))	  ||
+	    (var = getenv("PFQ_FANOUT"))  ||
+	    (var = getenv("PCAP_FANOUT"))
+	   )
 	{
 		free(opt->fanout[PCAP_FANOUT_GROUP_DEFAULT]);
 		opt->fanout[PCAP_FANOUT_GROUP_DEFAULT] = strdup(var);
