@@ -461,11 +461,9 @@ int pfq_fanout(pcap_t *handle, int group, const char *fanout)
 	struct pcap_pfq_linux *handlep = handle->priv;
 	struct stat s;
 
-	fprintf(stderr, "[PFQ] loading pfq-lang program '%s' for group %d\n", fanout, group);
-
 	if (stat(fanout, &s) == 0) { /* fanout is a filepath */
 
-		fprintf(stderr, "[PFQ] loading pfq-lang source '%s' for group %d\n", fanout, group);
+		fprintf(stderr, "[PFQ] loading pfq source '%s' for group %d\n", fanout, group);
 		if (pfq_set_group_computation_from_file( handlep->q
 						       , group
 						       , fanout) < 0) {
@@ -476,7 +474,7 @@ int pfq_fanout(pcap_t *handle, int group, const char *fanout)
 		}
 
 	} else {
-		fprintf(stderr, "[PFQ] loading in-line pfq-lang '%s' for group %d\n", fanout, group);
+		fprintf(stderr, "[PFQ] loading in-line pfq '%s' for group %d\n", fanout, group);
 		if (pfq_set_group_computation_from_string( handlep->q
 							 , group
 							 , fanout) < 0) {
