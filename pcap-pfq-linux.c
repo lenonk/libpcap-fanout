@@ -473,7 +473,20 @@ int pfq_fanout(pcap_t *handle, int group, const char *fanout)
 			return PCAP_ERROR;
 		}
 
-	} else {
+	} else
+	if (strstr(fanout, "[{\"funIndex\":0") == fanout) {
+		fprintf(stderr, "[PFQ] loading pfq/json computation for group %d\n", group);
+
+		if (pfq_set_group_computation_from_json( handlep->q
+						       , group
+						       , fanout) < 0) {
+
+			snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
+				 "[PFQ] error: %s", pfq_error(handlep->q));
+			return PCAP_ERROR;
+		}
+        }
+        else {
 		fprintf(stderr, "[PFQ] loading in-line pfq '%s' for group %d\n", fanout, group);
 		if (pfq_set_group_computation_from_string( handlep->q
 							 , group
@@ -605,6 +618,7 @@ pfq_activate_socket_for_device(pcap_t *handle, const char *device)
 
 		handlep->q = pfq_open_nogroup(min(handle->snapshot, handle->opt.config.caplen),
 					      handle->opt.config.pfq_rx_slots,
+					      min(handle->snapshot, handle->opt.config.caplen),
 					      handle->opt.config.pfq_tx_slots);
 		if (handlep->q == NULL) {
 			snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "%s", pfq_error(handlep->q));
@@ -641,6 +655,7 @@ pfq_activate_socket_for_device(pcap_t *handle, const char *device)
 		handlep->q = pfq_open_group(Q_CLASS_DEFAULT, Q_POLICY_GROUP_SHARED,
 						  min(handle->snapshot, handle->opt.config.caplen),
 						  handle->opt.config.pfq_rx_slots,
+						  min(handle->snapshot, handle->opt.config.caplen),
 						  handle->opt.config.pfq_tx_slots);
 		if (handlep->q == NULL) {
 			snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "%s", pfq_error(handlep->q));
@@ -671,7 +686,7 @@ pfq_activate_linux(pcap_t *handle)
 	struct pcap_pfq_linux *handlep = handle->priv;
 
 	char *device = NULL, *config = NULL;
-        const int maxlen = 1514;
+        const int maxlen = 1520;
 	char *first_dev;
 	int group;
 
@@ -871,7 +886,7 @@ pfq_activate_linux(pcap_t *handle)
 
 			tot = pfq_count_tx_thread(&handle->opt.config);
 			if (tot) {
-				fprintf(stderr, "[PFQ] enabling %zu Tx async on dev %s...\n", tot, first_dev);
+				fprintf(stderr, "[PFQ] enabling %zu async Tx on dev %s...\n", tot, first_dev);
 
 				handle->opt.config.pfq_tx_async = 1;
 
@@ -984,9 +999,9 @@ pfq_inject_linux(pcap_t *handle, const void * buf, size_t size)
 	int ret;
 
 	if (handle->opt.config.pfq_tx_async)
-		ret = pfq_send_async(handlep->q, buf, size, 1);
+		ret = pfq_send_async(handlep->q, buf, size, 1, Q_ANY_KTHREAD);
 	else
-		ret = pfq_send(handlep->q, buf, size, handle->opt.config.pfq_tx_sync, 1);
+		ret = pfq_send(handlep->q, buf, size, 1, handle->opt.config.pfq_tx_sync);
         if (ret == -1) {
 		snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "%s", pfq_error(handlep->q));
 		return PCAP_ERROR;
@@ -1092,9 +1107,8 @@ pfq_read_linux(pcap_t *handle, int max_packets, pcap_handler callback, u_char *u
                 uint16_t vlan_tci;
 		const char *pkt;
 
-		__builtin_prefetch(pfq_pkt_header(it), 0, 3);
-		__builtin_prefetch((char *)(pfq_pkt_header(it))+64, 0, 3);
-		__builtin_prefetch((char *)(pfq_pkt_header(it))+128, 0, 3);
+		__builtin_prefetch(pfq_pkt_header(it), 0, 2);
+		__builtin_prefetch(((void *)pfq_pkt_header(it))+64, 0, 2);
 
 		while (!pfq_pkt_ready(nq, it)) {
 			if (unlikely(handle->break_loop)) {

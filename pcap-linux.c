@@ -1727,6 +1727,9 @@ pcap_activate_linux(pcap_t *handle)
 				return PCAP_ERROR;
 			}
 		}
+		else {
+		        handle->opt.config = pcap_config_default(handle);
+                }
 
 		/*
 		 * parse environ variables
